@@ -75,20 +75,31 @@ def split_paragraphs(text: str) -> list[str]:
     return [p for p in re.split(r"\n\s*\n", text) if p.strip()]
 
 
-def _inflected_forms(base: str) -> list[str]:
-    """The base word plus its safe regular inflections, longest-first.
+# Irregular inflections a regex can't derive (mostly strong-verb pasts). Only
+# add a base here if its irregular form actually shows up in drafts - the
+# regular suffix machinery already covers the common cases. _word_pattern's
+# `reserved` guard prevents double-counting when a form is itself an exact
+# catalog entry, but NOT when it's a substring of one - so 'driven' is excluded:
+# it sits inside the cataloged compound 'data-driven' and \b sees '-' as a
+# boundary, which would double-count every 'data-driven'.
+_IRREGULAR_FORMS: dict[str, tuple[str, ...]] = {
+    "drive": ("drove",),  # "what drove the change"; 'driven' excluded (see above)
+}
 
-    Covers -s/-es/-ing/-ed/-d/-ly with the silent-e drop ('leverage' ->
-    'leveraging', 'navigate' -> 'navigating', 'delve' -> 'delving'), plus the
-    two adjective families whose adverbs don't take plain -ly: -ic -> -ically
-    (holistic -> holistically, strategic -> strategically) and -able -> -ably
-    (sustainable -> sustainably, scalable -> scalably).
+
+def _inflected_forms(base: str) -> list[str]:
+    """The base word plus its inflections, longest-first.
+
+    Covers the regular -s/-es/-ing/-ed/-d/-ly set with the silent-e drop
+    ('leverage' -> 'leveraging', 'navigate' -> 'navigating', 'delve' ->
+    'delving'), the two adverb families that don't take plain -ly (-ic ->
+    -ically: holistic -> holistically; -able -> -ably: sustainable ->
+    sustainably), and the irregulars in _IRREGULAR_FORMS (drive -> drove).
 
     Deliberately NOT generated: derivational suffixes (-ation/-tion/-ment/-er,
     etc.) that build different words cataloged separately (optimize vs
     optimization, transform vs transformation) - and _word_pattern's `reserved`
-    guard drops any generated form that is itself another entry. Irregular
-    forms (driven, drove, woven) are out of a regex's reach.
+    guard drops any generated form that is itself another entry.
     """
     base = base.lower()
     ends_e = base.endswith("e")
@@ -103,6 +114,7 @@ def _inflected_forms(base: str) -> list[str]:
         forms.add(base + "ally")      # holistic -> holistically
     if base.endswith("able"):
         forms.add(base[:-2] + "ly")   # sustainable -> sustainably
+    forms.update(_IRREGULAR_FORMS.get(base, ()))
     return sorted(forms, key=len, reverse=True)
 
 

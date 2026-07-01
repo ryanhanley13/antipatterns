@@ -97,6 +97,25 @@ class TestScanLogic(unittest.TestCase):
         self.assertIn(strategic, hits)
         self.assertIn(sustainable, hits)
 
+    # --- Irregular inflections a regex can't derive (strong-verb pasts). ---
+    def test_irregular_inflection_overrides(self):
+        # 'drive' is a Tier-2 verb; its past 'drove' isn't reachable by the
+        # regular -ed machinery. The _IRREGULAR_FORMS override catches it.
+        hits = scan.hits_in_block("what drove the change.", self.cat.entries)
+        drive = next(e for e in self.cat.entries if e.text.lower() == "drive")
+        self.assertIn(drive, hits)
+
+    def test_driven_compound_does_not_double_count(self):
+        # Regression (Codex review on #9): 'driven' is excluded from the drive
+        # override because it sits inside the cataloged compound 'data-driven'
+        # (\b sees '-' as a boundary), which would double-count. 'data-driven'
+        # matches its own entry once; 'drive' must NOT also match it.
+        hits = scan.hits_in_block("a data-driven approach.", self.cat.entries)
+        drive = next(e for e in self.cat.entries if e.text.lower() == "drive")
+        data_driven = next(e for e in self.cat.entries if e.text.lower() == "data-driven")
+        self.assertIn(data_driven, hits)
+        self.assertNotIn(drive, hits)
+
     # --- Phrase matching (opener) ---
     def test_tier1_phrase_matched(self):
         r = scan.scan("In today's fast-paced world, things change.", self.cat)

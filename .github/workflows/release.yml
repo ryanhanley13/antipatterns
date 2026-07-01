@@ -25,12 +25,18 @@ jobs:
       - name: Publish bundle to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: RELEASE_NOTES/${{ github.ref_name }}.md
         run: |
+          if [[ ! -f "$NOTES" ]]; then
+            echo "::error::Release notes not found: $NOTES"
+            echo "Write RELEASE_NOTES/<tag>.md before tagging, then re-run."
+            exit 1
+          fi
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" antipatterns.skill --clobber
           else
             gh release create "${GITHUB_REF_NAME}" antipatterns.skill \
               --title "${GITHUB_REF_NAME}" \
-              --generate-notes \
+              --notes-file "$NOTES" \
               --verify-tag
           fi

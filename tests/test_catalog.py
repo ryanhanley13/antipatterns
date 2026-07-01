@@ -97,6 +97,20 @@ class TestRealCatalog(unittest.TestCase):
         self.assertEntry("pave the way for", 1, False)
         self.assertEntry("best practices", 1, False)
 
+    # --- Research-driven enrichment (2026-07): 2024-2026 excess-word studies ---
+    def test_research_driven_additions(self):
+        # Verbs / adjectives / noun added from excess-word research (arXiv, FSU).
+        self.assertEntry("underscore", 2, True)
+        self.assertEntry("intricate", 2, True)
+        self.assertEntry("meticulous", 2, True)
+        self.assertEntry("beacon", 2, True)
+        # Stock phrases (always Tier 1) added from the same research.
+        self.assertEntry("underscores the importance of", 1, False)
+        self.assertEntry("a testament to", 1, False)
+        self.assertEntry("sheds light on", 1, False)
+        # §13 transition added.
+        self.assertEntry("Notably", 2, True)
+
     # --- Parenthetical / annotation stripping ---
     def test_no_stray_parens_or_brackets_anywhere(self):
         for e in self.cat.entries:

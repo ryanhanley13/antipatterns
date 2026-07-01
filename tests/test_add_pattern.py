@@ -197,7 +197,11 @@ class TestCLI(unittest.TestCase):
             parsed = parse_catalog_text(cat.read_text())
             self.assertIsNotNone(find(parsed, "synergize"))
             self.assertIsNotNone(find(parsed, "Moving forward"))
-            self.assertEqual(len(parsed.entries), 183 + 2)
+            # Baseline is the live catalog size (not hard-coded) so this test
+            # doesn't break every time the catalog grows. Two additions were
+            # applied, so the result must be exactly baseline + 2.
+            baseline = len(parse_catalog_text(REAL).entries)
+            self.assertEqual(len(parsed.entries), baseline + 2)
             text = cat.read_text()
             self.assertIn("appeared 3x in a draft", text)
             self.assertIn("L2", text)

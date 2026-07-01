@@ -38,11 +38,23 @@ Do NOT run this skill on:
 Open `ANTIPATTERNS.md`. Load the tier system, every category, the removal test, the false-positive guardrails, and the voice drift check questions. Do not skip this step. If the file has been updated since the last run, the new patterns matter.
 
 ### Step 2: Scan the draft
-Walk the draft from top to bottom. For each suspect word, phrase, structure, or rhythm:
+First, run the deterministic sweeper for a lexical baseline:
+
+```bash
+python scan.py path/to/draft.md
+```
+
+(Or `python scan.py -` to read stdin. Add `--allow word,word` to suppress the user's own vocabulary, `--strict` to exit nonzero on any Tier 1 hit or em-dash, `--json` for machine-readable output.)
+
+`scan.py` reads `ANTIPATTERNS.md` as its source of truth and counts every Tier 1/2/3 word and phrase, plus em-dashes, and reports per-paragraph density. It grounds the scan in numbers instead of vibes: exactly how many "furthermore"s land in one paragraph, where the em-dashes are, what the per-1000-word rate is. Use its output as the floor.
+
+It is **lexical only**. It cannot see antithesis tics, triplet rhythm, colon density, anaphora, or the contrarian-reveal formula. Those are structural and stay your job below. Treat the scan as the measurable layer; the rest is judgment.
+
+Then walk the draft from top to bottom. For each suspect word, phrase, structure, or rhythm:
 
 - Identify which antipattern category it belongs to
 - Tag the tier (1, 2, or 3)
-- For Tier 3 items, apply the removal test from `ANTIPATTERNS.md` before flagging
+- For Tier 3 items, apply the removal test from `ANTIPATTERNS.md` before flagging. (`scan.py` lists Tier 3 hits as candidates only, never as flags, for exactly this reason.)
 - Apply false-positive guardrails: skip the flag if the word is in the user's own vocabulary, in a technical domain context, or inside a direct quote
 
 ### Step 3: Rewrite

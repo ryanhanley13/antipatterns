@@ -13,14 +13,14 @@ Not all antipatterns carry the same weight. Treat them in three tiers.
 ### Tier 1: Catastrophic (zero tolerance)
 One instance ruins the piece. These are the words and phrases that scream "AI wrote this" the moment they appear. No exceptions, no edge cases, no "but in context..."
 
-Examples: delve, tapestry, "In today's fast-paced world," "As an AI," the antithesis tic ("It's not X, it's Y"), the chirpy closer ("Hope this helps!"), em-dashes.
+Examples: delve, tapestry, leverage, robust, navigate, foster, "In today's fast-paced world," "As an AI," the antithesis tic ("It's not X, it's Y"), the chirpy closer ("Hope this helps!"), em-dashes.
 
 If a Tier 1 item shows up, kill it. No debate.
 
 ### Tier 2: Pattern-dependent (density matters)
 Fine in isolation. Disastrous when clustered. These are the words that crop up naturally in real writing but signal AI when they repeat, stack, or appear in predictable rhythms.
 
-Examples: furthermore, additionally, leverage, robust, navigate, foster.
+Examples: furthermore, additionally, nuanced, landscape.
 
 Rule of thumb: one is fine, two might be okay, three in a paragraph is a tell.
 
@@ -214,7 +214,7 @@ The thinking can be contrarian. The structure can't be canned. Write the contrar
 
 **Tier 2:** nuanced, pivotal, transformative, sustainable, scalable, mission-critical, data-driven, future-proof, agile, lean, optimized, strategic, tactical
 
-**Tier 3 (judgment):** crucial, vital, essential, key, important, significant, meaningful
+**Tier 3 (judgment):** critical, crucial, vital, essential, key, important, significant, meaningful
 
 ### Nouns & Metaphors
 
@@ -403,6 +403,8 @@ When in doubt: write it the way Ryan would say it out loud.
 When new antipatterns get added to this file, log them at the bottom with a date and a short note on what prompted the add. Helps catch overcorrection and lets us audit what's actually showing up in drafts versus what's hypothetical.
 
 ### Change log
+- **2026-07-01:** Added `critical` to the §11 Tier-3 adjective list. It was missing despite being the word used to demonstrate the removal test ("It's critical to plan ahead") and listed in the Tier System overview — only `crucial` was in the detailed list. Surfaced by scan.py, which faithfully reports only what's cataloged.
+- **2026-07-01:** Reconciled the "## The Tier System" overview examples with the §11 detailed lists. The overview listed `leverage`, `robust`, `navigate`, `foster` as Tier-2 examples, but §11 catalogs them as Tier 1 (verbs/adjectives). Moved them to the Tier-1 overview line; replaced the Tier-2 overview examples with genuine Tier-2 words (`furthermore`, `additionally`, `nuanced`, `landscape`). §11 is the authoritative source the skill scans against; the overview now matches it.
 - **2026-05-15:** Added Section 14 entry for colon density / setup-payoff colons (Tier 1). Caught during first skill test when the cleaned draft itself contained "Here's what's actually happening:" as a dramatic setup colon. Pattern was previously buried as a sub-example under em-dash replacements; promoted to its own bullet with examples, removal test, and density rule.
 - **2026-05-15:** Added "maxim closer" entry to Section 15 ("The future belongs to the bold," "Fortune favors the brave," etc.) with a context note: tell in standard prose, acceptable in deliberately motivational content. Surfaced during first skill test.
 - **v2 (2026-05-14):** Added tier system, sycophancy, hedging, AI disclaimers, rhetorical question structure, engagement-bait reveals, performative honesty, contrarian-reveal formula, stat-flavored vagueness, expanded verb/adjective/noun lists, em-dash rhythm ban, additional structural tics, false-positive removal test, voice drift sanity check, versioning section.

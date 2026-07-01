@@ -97,6 +97,15 @@ class TestScanLogic(unittest.TestCase):
         self.assertIn(strategic, hits)
         self.assertIn(sustainable, hits)
 
+    # --- Irregular inflections a regex can't derive (strong-verb pasts). ---
+    def test_irregular_inflection_overrides(self):
+        # 'drive' is a Tier-2 verb; its pasts (driven, drove) aren't reachable
+        # by the regular -ed machinery. The _IRREGULAR_FORMS override catches them.
+        text = "a results-driven culture; what drove the change."
+        hits = scan.hits_in_block(text, self.cat.entries)
+        drive = next(e for e in self.cat.entries if e.text.lower() == "drive")
+        self.assertIn(drive, hits)
+
     # --- Phrase matching (opener) ---
     def test_tier1_phrase_matched(self):
         r = scan.scan("In today's fast-paced world, things change.", self.cat)

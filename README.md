@@ -44,7 +44,7 @@ Then it rewrites the offending sections and runs a **voice drift check** to make
 
 ### For Claude.ai (web/desktop/mobile)
 
-1. Download `antipatterns.skill` from this repo (or the [Releases](../../releases) page).
+1. Download the latest `antipatterns.skill` from the [Releases](../../releases) page.
 2. Import via Settings → Skills.
 
 ### For Claude Code
@@ -156,10 +156,9 @@ Run editorial first, antipatterns second.
 
 ## Development
 
-Pure stdlib Python - no dependencies. Two helper scripts in `tools/`:
+Pure stdlib Python - no dependencies. One helper script in `tools/`:
 
-- `python tools/build_bundle.py` - rebuild `antipatterns.skill` from the runtime files. Run after editing any of `SKILL.md`, `ANTIPATTERNS.md`, `scan.py`, `catalog.py`, or `add_pattern.py`.
-- `python tools/check_bundle_sync.py` - exit nonzero if the committed bundle is out of sync with source.
+- `python tools/build_bundle.py` - rebuild `antipatterns.skill` from the runtime files (`SKILL.md`, `ANTIPATTERNS.md`, `scan.py`, `catalog.py`, `add_pattern.py`). Useful for inspecting the bundle locally.
 
 Tests are stdlib `unittest`:
 
@@ -167,7 +166,7 @@ Tests are stdlib `unittest`:
 python -m unittest discover -s tests
 ```
 
-CI (`.github/workflows/ci.yml`) runs the suite across Python 3.11-3.13 and enforces bundle sync on every push and pull request - so the bundle can't silently drift and a bad edit can't regress unnoticed.
+CI (`.github/workflows/ci.yml`) runs the suite across Python 3.11-3.13 on every push and pull request, so a bad edit can't regress unnoticed. The bundle itself is never committed - tagging a `v*` release runs `.github/workflows/release.yml`, which builds `antipatterns.skill` and publishes it to a GitHub Release.
 
 ## Contributing
 

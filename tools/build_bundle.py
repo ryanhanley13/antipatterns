@@ -3,8 +3,10 @@
 
 The bundle is a zip of the runtime files (no README, LICENSE, tests, or
 tooling), nested under antipatterns/ to match the original package layout.
-Run this after editing any runtime file, then commit the result.
-CI (tools/check_bundle_sync.py) fails if you forget.
+It is a build artifact, not a committed file: the release workflow
+(.github/workflows/release.yml) builds and publishes it to a GitHub Release
+on v* tags, so it is gitignored (see .gitignore). Run this locally to
+inspect the bundle a release would ship.
 
 Usage:
     python tools/build_bundle.py
@@ -29,7 +31,6 @@ def main() -> int:
         for f in RUNTIME:
             z.write(REPO / f, arcname=f"antipatterns/{f}")
     print(f"built {OUT.relative_to(REPO)} ({OUT.stat().st_size} bytes, {len(RUNTIME)} files)")
-    print("run tools/check_bundle_sync.py to verify")
     return 0
 
 

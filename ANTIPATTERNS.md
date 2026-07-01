@@ -202,17 +202,19 @@ The thinking can be contrarian. The structure can't be canned. Write the contrar
 
 ## 11. AI Vocabulary Tells
 
+> **Research note (2024–2026):** excess-word studies show model overuse has shifted from nouns to **verbs and adjectives** — roughly 66% verbs and 18% adjectives among the ~280 "excess" style words flagged in 2024 (arXiv 2406.07016). These verb and adjective lists are where the catalog drifts fastest; re-check them against current drafts, not against memory.
+
 ### Verbs (avoid unless user used them first)
 
 **Tier 1:** delve, leverage, foster, embark, harness, usher, illuminate, navigate (as a verb for abstract topics)
 
-**Tier 2:** cultivate, empower, unlock, elevate, resonate, drive, fuel, power, shape, transform, revolutionize, disrupt, supercharge, amplify, accelerate, redefine, reimagine, optimize, align
+**Tier 2:** cultivate, empower, unlock, elevate, resonate, drive, fuel, power, shape, transform, revolutionize, disrupt, supercharge, amplify, accelerate, redefine, reimagine, optimize, align, underscore, showcase
 
 ### Adjectives
 
 **Tier 1:** seamless, robust, multifaceted, holistic, cutting-edge, game-changing, revolutionary, paradigm-shifting, world-class, best-in-class
 
-**Tier 2:** nuanced, pivotal, transformative, sustainable, scalable, mission-critical, data-driven, future-proof, agile, lean, optimized, strategic, tactical
+**Tier 2:** nuanced, pivotal, transformative, sustainable, scalable, mission-critical, data-driven, future-proof, agile, lean, optimized, strategic, tactical, intricate, meticulous, comprehensive, adept, vibrant, bustling, ever-evolving
 
 **Tier 3 (judgment):** critical, crucial, vital, essential, key, important, significant, meaningful
 
@@ -220,7 +222,7 @@ The thinking can be contrarian. The structure can't be canned. Write the contrar
 
 **Tier 1:** tapestry, treasure trove, plethora, myriad, synergy, testament, cornerstone
 
-**Tier 2:** landscape, ecosystem, journey, realm, alignment, optimization, engagement, transformation, evolution, paradigm, framework, methodology, mindset, philosophy
+**Tier 2:** landscape, ecosystem, journey, realm, alignment, optimization, engagement, transformation, evolution, paradigm, framework, methodology, mindset, philosophy, beacon
 
 ### Stock Phrases [Tier 1]
 
@@ -249,6 +251,12 @@ The thinking can be contrarian. The structure can't be canned. Write the contrar
 - "stay ahead of the curve"
 - "at the end of the day"
 - "when all is said and done"
+- "underscores the importance of"
+- "a testament to"
+- "plays a pivotal role"
+- "plays a key role"
+- "sheds light on"
+- "rich tapestry"
 
 ---
 
@@ -279,6 +287,7 @@ These transitions are the connective tissue of LLM-generated text. Use real tran
 - To summarize,
 - In summary,
 - Ultimately,
+- Notably,
 
 One per long piece, maybe. Two is a flag. Three is a confession.
 
@@ -402,7 +411,10 @@ When in doubt: write it the way Ryan would say it out loud.
 
 When new antipatterns get added to this file, log them at the bottom with a date and a short note on what prompted the add. Helps catch overcorrection and lets us audit what's actually showing up in drafts versus what's hypothetical.
 
+**Last researched:** 2026-07 — refreshed §11 verbs, adjectives, and stock phrases against 2024–2026 excess-word studies (arXiv 2406.07016; FSU 2025; Oxford/SynkrLAB lists). Re-research cadence: when the catalog hasn't been checked against current model output for ~3 months, or before any tagged release, whichever comes first.
+
 ### Change log
+- **2026-07-01:** Research-driven enrichment of §11 (first content refresh since v2). Added verbs (`underscore`, `showcase`), adjectives (`intricate`, `meticulous`, `comprehensive`, `adept`, `vibrant`, `bustling`, `ever-evolving`), noun (`beacon`), transition (`Notably,`), and stock phrases ("underscores the importance of," "a testament to," "plays a pivotal/key role," "sheds light on," "rich tapestry") — all flagged by 2024–2026 excess-word studies as model overuse but missing from the catalog. Added a research note on the verb/adjective shift under §11. Sources: arXiv 2406.07016, FSU 2025, Oxford, SynkrLAB.
 - **2026-07-01:** Added `critical` to the §11 Tier-3 adjective list. It was missing despite being the word used to demonstrate the removal test ("It's critical to plan ahead") and listed in the Tier System overview — only `crucial` was in the detailed list. Surfaced by scan.py, which faithfully reports only what's cataloged.
 - **2026-07-01:** Reconciled the "## The Tier System" overview examples with the §11 detailed lists. The overview listed `leverage`, `robust`, `navigate`, `foster` as Tier-2 examples, but §11 catalogs them as Tier 1 (verbs/adjectives). Moved them to the Tier-1 overview line; replaced the Tier-2 overview examples with genuine Tier-2 words (`furthermore`, `additionally`, `nuanced`, `landscape`). §11 is the authoritative source the skill scans against; the overview now matches it.
 - **2026-05-15:** Added Section 14 entry for colon density / setup-payoff colons (Tier 1). Caught during first skill test when the cleaned draft itself contained "Here's what's actually happening:" as a dramatic setup colon. Pattern was previously buried as a sub-example under em-dash replacements; promoted to its own bullet with examples, removal test, and density rule.

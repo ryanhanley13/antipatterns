@@ -107,19 +107,30 @@ Tier 3 words are listed as **candidates for the removal test**, never auto-flagg
 
 ## Adding new patterns
 
-When the skill spots a pattern that's not in the catalog, it proposes the addition at the end of its output. To apply approved additions:
+When the skill spots a pattern that's not in the catalog, it proposes the addition at the end of its output. To apply approved additions, run `add_pattern.py`. Two modes:
+
+Interactive (one at a time):
 
 ```bash
 python add_pattern.py path/to/ANTIPATTERNS.md
 ```
 
-Interactive prompts walk you through:
-- Section selection (15 categories)
-- Tier assignment (for tier-split sections)
-- The pattern text
-- A change log entry (dated automatically)
+Prompts walk you through section selection (15 categories), tier assignment (for tier-split sections), the pattern text, and a change-log entry.
 
-The file is updated in place. The change log at the bottom of `ANTIPATTERNS.md` tracks every addition.
+Non-interactive batch — apply a JSON spec directly (the way to apply the skill's own proposals without re-typing):
+
+```bash
+python add_pattern.py --apply additions.json path/to/ANTIPATTERNS.md
+```
+
+```json
+[
+  {"section": "11", "subsection": "Verbs", "tier": 1, "text": "synergize", "log": "appeared 3x in a draft"},
+  {"section": "13", "tier": 2, "text": "Moving forward", "log": "transition variant"}
+]
+```
+
+Both modes update the file in place and append a dated change-log entry. Every edit is round-trip validated (re-parsed before writing), so a malformed addition is rejected and the catalog is never corrupted. `--dry-run` shows what would change without writing. Section structure comes from `catalog.py`.
 
 ## Customizing for your voice
 

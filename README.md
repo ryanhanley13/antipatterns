@@ -154,6 +154,21 @@ The skill is designed to run independently of other content-editing skills (like
 
 Run editorial first, antipatterns second.
 
+## Development
+
+Pure stdlib Python - no dependencies. Two helper scripts in `tools/`:
+
+- `python tools/build_bundle.py` - rebuild `antipatterns.skill` from the runtime files. Run after editing any of `SKILL.md`, `ANTIPATTERNS.md`, `scan.py`, `catalog.py`, or `add_pattern.py`.
+- `python tools/check_bundle_sync.py` - exit nonzero if the committed bundle is out of sync with source.
+
+Tests are stdlib `unittest`:
+
+```bash
+python -m unittest discover -s tests
+```
+
+CI (`.github/workflows/ci.yml`) runs the suite across Python 3.11-3.13 and enforces bundle sync on every push and pull request - so the bundle can't silently drift and a bad edit can't regress unnoticed.
+
 ## Contributing
 
 Pull requests welcome. Especially:

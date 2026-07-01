@@ -106,6 +106,26 @@ class TestApplyAddition(unittest.TestCase):
         self.assertLess(maxim, note, "context note should follow its maxim-closer bullet")
         self.assertLess(note, newb, "new bullet must come AFTER the context note, not orphan it")
 
+    def test_tiered_section_does_not_orphan_indented_children(self):
+        # Regression: add_to_tiered_section must land a new bullet AFTER any
+        # indented children of the last top-level bullet, not between them (no
+        # real tiered section has nested children, so this uses a synthetic one).
+        synthetic = (
+            "## 2. Throat-Clearing Openers [Tier 1 to Tier 2]\n\n"
+            "**Tier 1 (never use):**\n"
+            '- "In today\'s fast-paced world..."\n'
+            "  - nested note that must stay under its parent\n\n"
+            "## 3. Sycophancy [Tier 1]\n"
+        )
+        new = ap.apply_addition(
+            synthetic, ap.Addition(section="2", tier=1, text="Another opener")
+        )
+        parent = new.find("fast-paced world")
+        note = new.find("nested note")
+        newb = new.find("Another opener")
+        self.assertLess(parent, note, "nested note should follow its parent bullet")
+        self.assertLess(note, newb, "new bullet must come AFTER the nested note")
+
 
 class TestParseSpec(unittest.TestCase):
     def test_single_object_becomes_list(self):

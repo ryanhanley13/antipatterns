@@ -223,6 +223,46 @@ class TestScanLogic(unittest.TestCase):
         self.assertEqual(r["metrics"]["em_dashes"], 0)
 
 
+class TestDiscover(unittest.TestCase):
+    """Candidate discovery: uncataloged words that repeat (propose->apply fuel)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cat = parse_catalog(CATALOG_PATH)
+
+    def test_finds_uncataloged_repeat(self):
+        # 'synergize' is not cataloged (it's the canonical example of an addition).
+        cands = scan.discover_candidates(
+            "synergize this. synergize that. synergize now.", self.cat
+        )
+        self.assertEqual([c["word"] for c in cands], ["synergize"])
+        self.assertEqual(cands[0]["count"], 3)
+
+    def test_excludes_cataloged_entries_and_their_inflections(self):
+        # 'leverage' is cataloged Tier 1; 'leveraged'/'leveraging' are its
+        # inflections, 'delve'/'navigating' likewise. None should be suggested.
+        text = "leverage leveraged leveraging delve delving navigate navigating"
+        self.assertEqual(scan.discover_candidates(text, self.cat), [])
+
+    def test_filters_stopwords_and_short_tokens(self):
+        text = "the the the and and and of of of is is is be be be a a a"
+        self.assertEqual(scan.discover_candidates(text, self.cat), [])
+
+    def test_respects_min_count(self):
+        text = "synergize synergize. operationalize operationalize operationalize."
+        # default (3): only operationalize (x3); synergize x2 is below threshold.
+        self.assertEqual([c["word"] for c in scan.discover_candidates(text, self.cat)],
+                         ["operationalize"])
+        # min 2: both.
+        self.assertEqual({c["word"] for c in scan.discover_candidates(text, self.cat, min_count=2)},
+                         {"synergize", "operationalize"})
+
+    def test_sorted_by_count_desc(self):
+        text = ("synergize " * 5 + "operationalize " * 3).strip()
+        cands = scan.discover_candidates(text, self.cat, min_count=2)
+        self.assertEqual([c["word"] for c in cands], ["synergize", "operationalize"])
+
+
 class TestCLI(unittest.TestCase):
     """Exercise the real CLI as a subprocess (stdin + exit codes)."""
 
@@ -263,6 +303,12 @@ class TestCLI(unittest.TestCase):
     def test_missing_file_exits_nonzero(self):
         proc = self._run(["does_not_exist.md"], "")
         self.assertNotEqual(proc.returncode, 0)
+
+    def test_discover_flag_lists_candidates(self):
+        proc = self._run(["-", "--discover"], "synergize synergize synergize.")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("CANDIDATES", proc.stdout)
+        self.assertIn("synergize", proc.stdout)
 
 
 if __name__ == "__main__":

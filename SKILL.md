@@ -79,6 +79,8 @@ While scanning, watch for patterns that aren't in `ANTIPATTERNS.md` yet but feel
 - A phrase or rhythm fits the spirit of an existing category but isn't on any list
 - A new vocabulary cluster that signals "model is reaching for stock phrasing"
 
+For a data-driven pass (not just model judgment), run `python scan.py draft.md --discover`. It lists uncataloged words that repeat (default ≥3×) — concrete fixation signal to evaluate with the removal test. (`--discover-min N` tunes the threshold.) This feeds the propose→apply loop with repeats mined from the actual draft.
+
 Do NOT add patterns to the file unilaterally. Surface them as proposals at the end of the output. The user owns the canonical catalog.
 
 ### Step 6: Deliver in the standard output format below.

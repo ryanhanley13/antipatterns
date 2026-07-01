@@ -56,6 +56,42 @@ class Catalog:
 
 
 # --------------------------------------------------------------------------
+# Section structure — the single source of truth shared with add_pattern.py.
+# add_pattern.py imports SECTIONS and VOCAB_SUBSECTIONS from here so the reader
+# and the writer can never disagree about which sections exist or how they're
+# laid out. Tuple form: (number, name, kind); kind drives insertion strategy.
+# --------------------------------------------------------------------------
+
+SECTIONS = [
+    ("1", "Antithesis & Contrast Tics", "flat"),
+    ("2", "Throat-Clearing Openers", "tiered"),
+    ("3", "Sycophancy & Hollow Validation", "flat"),
+    ("4", "Meta-Narration & Guided-Tour Phrases", "flat"),
+    ("5", "AI Disclaimers & False Humility", "flat"),
+    ("6", "Hedging & Fence-Sitting", "tiered"),
+    ("7", "Rhetorical Question + Answer Structure", "flat"),
+    ("8", "Engagement-Bait Reveals", "flat"),
+    ("9", "Performative Honesty Announcements", "flat"),
+    ("10", "The Contrarian Reveal Formula", "flat"),
+    ("11", "AI Vocabulary Tells (verbs/adjectives/nouns/stock phrases)", "vocab"),
+    ("12", "Stat-Flavored Vagueness", "flat"),
+    ("13", "Transition Robots", "flat"),
+    ("14", "Structural & Formatting Tics", "tiered"),
+    ("15", "Closing Tics", "flat"),
+]
+
+SECTION_NUMS = {s[0] for s in SECTIONS}
+
+# Section 11 (vocab) subsections: friendly name -> markdown header.
+VOCAB_SUBSECTIONS = {
+    "Verbs": "### Verbs",
+    "Adjectives": "### Adjectives",
+    "Nouns & Metaphors": "### Nouns & Metaphors",
+    "Stock Phrases": "### Stock Phrases",
+}
+
+
+# --------------------------------------------------------------------------
 # Regexes. Kept module-level so they compile once and are easy to audit.
 # --------------------------------------------------------------------------
 
@@ -160,14 +196,13 @@ def _make_entry(text: str, tier: int, label: str) -> Entry | None:
     return Entry(text=text, tier=tier, label=label, is_word=is_word)
 
 
-def parse_catalog(path: Path | str) -> Catalog:
-    """Parse ANTIPATTERNS.md into a Catalog.
+def parse_catalog_text(text: str) -> Catalog:
+    """Parse catalog markdown from a string into a Catalog.
 
     Tolerant: hand-edited oddities (unrecognized bullets, stray prose) are
     skipped silently. The catalog evolves; the parser degrades gracefully
     rather than crashing on a format change.
     """
-    text = Path(path).read_text(encoding="utf-8")
     lines = text.splitlines()
 
     catalog = Catalog()
@@ -185,8 +220,8 @@ def parse_catalog(path: Path | str) -> Catalog:
             continue
 
         section_num, section_name, ann_tier = m.group(1), m.group(2).strip(), m.group(3)
-        # Only sections 1-15 are lexical catalogs.
-        if not section_num.isdigit() or not (1 <= int(section_num) <= 15):
+        # Only known content sections (1-15) are lexical catalogs.
+        if section_num not in SECTION_NUMS:
             i += 1
             continue
 
@@ -294,6 +329,11 @@ def parse_catalog(path: Path | str) -> Catalog:
         catalog.entries.extend(section_entries)
 
     return _dedupe(catalog)
+
+
+def parse_catalog(path: Path | str) -> Catalog:
+    """Parse ANTIPATTERNS.md from a file path into a Catalog."""
+    return parse_catalog_text(Path(path).read_text(encoding="utf-8"))
 
 
 def _dedupe(catalog: Catalog) -> Catalog:

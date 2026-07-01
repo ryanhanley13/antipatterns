@@ -74,6 +74,29 @@ class TestScanLogic(unittest.TestCase):
         hits = scan.hits_in_block("done essentially right", self.cat.entries)
         self.assertNotIn(ess, hits)
 
+    # --- Regression (Codex review on #7): a token that is BOTH a catalog entry
+    #     and another entry's inflection must count once. 'optimized' is a
+    #     Tier-2 adjective AND the -d form of 'optimize', so 'optimized
+    #     optimized' is two hits, not four, and must not fake a cluster. ---
+    def test_no_double_count_when_inflection_is_separate_entry(self):
+        r = scan.scan("optimized optimized", self.cat)
+        self.assertEqual(r["tier2"]["total"], 2)  # not 4
+        self.assertEqual(len(r["tier2"]["clusters"]), 0)  # 2 < 3, no cluster
+        opt = next(e for e in self.cat.entries if e.text.lower() == "optimize")
+        self.assertNotIn(opt, scan.hits_in_block("optimized optimized", self.cat.entries))
+
+    # --- Regression (Codex review on #7): -ic and -able adjectives form their
+    #     adverbs as -ically / -ably, not plain -ly. ---
+    def test_inflection_generates_ically_and_ably_adverbs(self):
+        text = "holistically and strategically sound, sustainably built."
+        hits = scan.hits_in_block(text, self.cat.entries)
+        holistic = next(e for e in self.cat.entries if e.text.lower() == "holistic")
+        strategic = next(e for e in self.cat.entries if e.text.lower() == "strategic")
+        sustainable = next(e for e in self.cat.entries if e.text.lower() == "sustainable")
+        self.assertIn(holistic, hits)
+        self.assertIn(strategic, hits)
+        self.assertIn(sustainable, hits)
+
     # --- Phrase matching (opener) ---
     def test_tier1_phrase_matched(self):
         r = scan.scan("In today's fast-paced world, things change.", self.cat)

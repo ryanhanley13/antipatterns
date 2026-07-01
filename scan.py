@@ -75,20 +75,20 @@ def split_paragraphs(text: str) -> list[str]:
     return [p for p in re.split(r"\n\s*\n", text) if p.strip()]
 
 
-# Suffixes a catalog word can take and still be the same tell. Deliberately
-# EXCLUDES derivational suffixes (-ation/-tion/-ment/-sion/-ity/-ness) and -er:
-# those build different words that are cataloged separately (optimize /
-# optimization, transform / transformation, align / alignment, evolve /
-# evolution), and matching them would double-count. Irregular forms (driven,
-# drove) are out of a regex's reach and stay unmatched.
-_REGULAR_SUFFIXES = ("s", "es", "ing", "ed", "d", "ly")
-
-
 def _inflected_forms(base: str) -> list[str]:
     """The base word plus its safe regular inflections, longest-first.
 
-    Handles the silent-e drop so 'leverage' -> 'leveraging' (not 'leverageing'),
-    'navigate' -> 'navigating', 'delve' -> 'delving'.
+    Covers -s/-es/-ing/-ed/-d/-ly with the silent-e drop ('leverage' ->
+    'leveraging', 'navigate' -> 'navigating', 'delve' -> 'delving'), plus the
+    two adjective families whose adverbs don't take plain -ly: -ic -> -ically
+    (holistic -> holistically, strategic -> strategically) and -able -> -ably
+    (sustainable -> sustainably, scalable -> scalably).
+
+    Deliberately NOT generated: derivational suffixes (-ation/-tion/-ment/-er,
+    etc.) that build different words cataloged separately (optimize vs
+    optimization, transform vs transformation) - and _word_pattern's `reserved`
+    guard drops any generated form that is itself another entry. Irregular
+    forms (driven, drove, woven) are out of a regex's reach.
     """
     base = base.lower()
     ends_e = base.endswith("e")
@@ -99,12 +99,25 @@ def _inflected_forms(base: str) -> list[str]:
     forms.add((stem + "ing") if ends_e else (base + "ing"))
     forms.add((base + "d") if ends_e else (base + "ed"))
     forms.add(base + "ly")
+    if base.endswith("ic"):
+        forms.add(base + "ally")      # holistic -> holistically
+    if base.endswith("able"):
+        forms.add(base[:-2] + "ly")   # sustainable -> sustainably
     return sorted(forms, key=len, reverse=True)
 
 
-def _word_pattern(base: str, inflect: bool) -> str:
-    """Regex source matching a word, optionally with its regular inflections."""
+def _word_pattern(base: str, inflect: bool, reserved: frozenset[str] = frozenset()) -> str:
+    """Regex source matching a word, optionally with its regular inflections.
+
+    `reserved` is the set of all catalog entry texts. When inflecting, any
+    generated form that is itself another entry's exact text is dropped, so a
+    token can't be double-counted across two entries - 'optimized' is both a
+    Tier-2 adjective and the -d form of 'optimize', so only the adjective
+    entry should match it (not both).
+    """
     forms = _inflected_forms(base) if inflect else [base.lower()]
+    if inflect and reserved:
+        forms = [f for f in forms if f == base.lower() or f not in reserved]
     return r"\b(?:" + "|".join(re.escape(f) for f in forms) + r")\b"
 
 
@@ -119,13 +132,14 @@ def hits_in_block(block: str, entries: list[Entry]) -> dict[Entry, int]:
     whitespace-normalized substrings.
     """
     block_l = normalize_ws(block).lower()
+    reserved = frozenset(e.text.lower() for e in entries)
     out: dict[Entry, int] = {}
     for e in entries:
         t = e.text.lower()
         if not t:
             continue
         if e.is_word:
-            n = len(re.findall(_word_pattern(t, inflect=e.tier in (1, 2)), block_l))
+            n = len(re.findall(_word_pattern(t, inflect=e.tier in (1, 2), reserved=reserved), block_l))
         else:
             n = block_l.count(t)
         if n:

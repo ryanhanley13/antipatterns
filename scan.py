@@ -78,9 +78,12 @@ def split_paragraphs(text: str) -> list[str]:
 # Irregular inflections a regex can't derive (mostly strong-verb pasts). Only
 # add a base here if its irregular form actually shows up in drafts - the
 # regular suffix machinery already covers the common cases. _word_pattern's
-# `reserved` guard still prevents double-counting if a form is ever cataloged.
+# `reserved` guard prevents double-counting when a form is itself an exact
+# catalog entry, but NOT when it's a substring of one - so 'driven' is excluded:
+# it sits inside the cataloged compound 'data-driven' and \b sees '-' as a
+# boundary, which would double-count every 'data-driven'.
 _IRREGULAR_FORMS: dict[str, tuple[str, ...]] = {
-    "drive": ("driven", "drove"),  # "results-driven", "driven by", "what drove it"
+    "drive": ("drove",),  # "what drove the change"; 'driven' excluded (see above)
 }
 
 
@@ -91,7 +94,7 @@ def _inflected_forms(base: str) -> list[str]:
     ('leverage' -> 'leveraging', 'navigate' -> 'navigating', 'delve' ->
     'delving'), the two adverb families that don't take plain -ly (-ic ->
     -ically: holistic -> holistically; -able -> -ably: sustainable ->
-    sustainably), and the irregulars in _IRREGULAR_FORMS (drive -> driven/drove).
+    sustainably), and the irregulars in _IRREGULAR_FORMS (drive -> drove).
 
     Deliberately NOT generated: derivational suffixes (-ation/-tion/-ment/-er,
     etc.) that build different words cataloged separately (optimize vs

@@ -91,6 +91,21 @@ class TestApplyAddition(unittest.TestCase):
         present = set(re.findall(r"^## (\d+)\. ", new, re.MULTILINE))
         self.assertEqual(present, {s[0] for s in CAT_SECTIONS})
 
+    def test_flat_section_does_not_orphan_indented_children(self):
+        # Regression (Codex review on #2): section 15's last bullet has an
+        # indented "Context note" child. Adding a new closer must land AFTER
+        # that note, not between the bullet and its child (which would orphan
+        # the note under the new bullet). validate() does NOT catch this, so
+        # the writer must.
+        before = len(parse_catalog_text(REAL).entries)
+        new = ap.apply_addition(REAL, ap.Addition(section="15", text="New closer test"))
+        ap.validate(new, before)  # still parses
+        maxim = new.find("The maxim closer:")
+        note = new.find("**Context note:**")
+        newb = new.find('"New closer test"')
+        self.assertLess(maxim, note, "context note should follow its maxim-closer bullet")
+        self.assertLess(note, newb, "new bullet must come AFTER the context note, not orphan it")
+
 
 class TestParseSpec(unittest.TestCase):
     def test_single_object_becomes_list(self):

@@ -73,15 +73,25 @@ def add_to_flat_section(content, section_num, pattern):
     section_end_pos = m.end() + (nm.start() if nm else len(after))
 
     section_text = content[m.end():section_end_pos]
-    bullet_re = re.compile(r"^- .+$", re.MULTILINE)
-    bullets = list(bullet_re.finditer(section_text))
-    if not bullets:
+    lines = section_text.splitlines(keepends=True)
+
+    # Last top-level bullet (starts with "- "; indented children start with
+    # whitespace and are deliberately excluded here).
+    last_top = None
+    for idx, ln in enumerate(lines):
+        if ln.startswith("- "):
+            last_top = idx
+    if last_top is None:
         raise ValueError(f"Section {section_num} has no bullets to anchor.")
 
-    last = bullets[-1]
-    insert_pos = m.end() + last.end()
-    new_line = f'\n- "{pattern}"'
-    return content[:insert_pos] + new_line + content[insert_pos:]
+    # Insert AFTER the last top-level bullet and any indented children that
+    # belong to it, so a nested note (e.g. section 15's Context note) isn't
+    # orphaned under the new bullet.
+    ins = last_top + 1
+    while ins < len(lines) and lines[ins][:1].isspace():
+        ins += 1
+    lines.insert(ins, f'- "{pattern}"\n')
+    return content[:m.end()] + "".join(lines) + content[section_end_pos:]
 
 
 def add_to_tiered_section(content, section_num, tier, bullet_content):

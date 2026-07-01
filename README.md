@@ -166,7 +166,7 @@ Tests are stdlib `unittest`:
 python -m unittest discover -s tests
 ```
 
-CI (`.github/workflows/ci.yml`) runs the suite across Python 3.11-3.13 on every push and pull request, so a bad edit can't regress unnoticed. The bundle itself is never committed - tagging a `v*` release runs `.github/workflows/release.yml`, which builds `antipatterns.skill` and publishes it to a GitHub Release.
+CI (`.github/workflows/ci.yml`) runs the suite across Python 3.11-3.13 on every push and pull request, so a bad edit can't regress unnoticed. The bundle itself is never committed - tagging a `v*` release runs `.github/workflows/release.yml`, which builds `antipatterns.skill` and publishes it to a GitHub Release. Each release ships hand-written notes: before tagging, add `RELEASE_NOTES/<tag>.md` (no top-level heading - the tag is the title); the workflow publishes it as the release body and fails if the file is missing.
 
 ## Contributing
 

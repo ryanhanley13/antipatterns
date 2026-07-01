@@ -135,13 +135,30 @@ If new candidate patterns surfaced during the scan:
 - Suggested tier: [1, 2, or 3]
 - Why: [short rationale, ideally with the actual example from this draft]
 
-Wait for the user to approve, reject, or modify. To apply approved additions, run the bundled `add_pattern.py` script from the skill folder:
+Wait for the user to approve, reject, or modify. Then apply the approved additions with the bundled `add_pattern.py`. Two ways:
+
+Interactive (one at a time, with prompts):
 
 ```bash
 python add_pattern.py path/to/ANTIPATTERNS.md
 ```
 
-The script walks through category selection, tier assignment (for tier-split sections), the new pattern text, and a log entry. It handles flat sections, tier-split sections (2, 6, 14), and the vocabulary subsections in Section 11 (verbs, adjectives, nouns, stock phrases). It updates the file in place and appends a dated entry to the change log.
+Non-interactive batch — the preferred way to apply this skill's own proposals. Emit the approved additions as a JSON spec and apply them directly, without re-typing:
+
+```bash
+python add_pattern.py --apply additions.json path/to/ANTIPATTERNS.md
+```
+
+The spec is one object or a list:
+
+```json
+[
+  {"section": "11", "subsection": "Verbs", "tier": 1, "text": "synergize", "log": "appeared 3x in a draft"},
+  {"section": "13", "tier": 2, "text": "Moving forward", "log": "transition variant"}
+]
+```
+
+Both modes handle flat sections, tier-split sections (2, 6, 14), and the Section 11 vocab subsections (verbs, adjectives, nouns, stock phrases), and both append a dated change-log entry. Every edit is round-trip validated (the file is re-parsed before writing), so a malformed addition is rejected and the catalog is never corrupted. Creating brand-new sections isn't supported via `--apply`; add those manually. Section structure comes from `catalog.py` — the single source of truth.
 
 ---
 

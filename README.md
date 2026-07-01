@@ -34,7 +34,9 @@ Then it rewrites the offending sections and runs a **voice drift check** to make
 | File | Purpose |
 |------|---------|
 | `SKILL.md` | The skill procedure: when to trigger, workflow, output format, failure modes |
-| `ANTIPATTERNS.md` | The catalog: 15 sections, ~200 patterns, tier system, removal test, voice drift check |
+| `ANTIPATTERNS.md` | The catalog: 15 sections, ~180 patterns, tier system, removal test, voice drift check |
+| `scan.py` | Deterministic lexical-density sweeper: counts every tell, reports per-paragraph density |
+| `catalog.py` | Parser that turns `ANTIPATTERNS.md` into structured lists (used by `scan.py`) |
 | `add_pattern.py` | Interactive CLI for adding new patterns as you spot them |
 | `antipatterns.skill` | Packaged installable bundle for Claude.ai |
 
@@ -47,16 +49,16 @@ Then it rewrites the offending sections and runs a **voice drift check** to make
 
 ### For Claude Code
 
-Drop the three files into your user skills directory:
+Drop the files into your user skills directory:
 
 ```bash
 mkdir -p ~/.claude/skills/antipatterns
-cp SKILL.md ANTIPATTERNS.md add_pattern.py ~/.claude/skills/antipatterns/
+cp SKILL.md ANTIPATTERNS.md scan.py catalog.py add_pattern.py ~/.claude/skills/antipatterns/
 ```
 
 ### Manual (any setup)
 
-Clone this repo and place `SKILL.md`, `ANTIPATTERNS.md`, and `add_pattern.py` together in whatever skill folder your Claude environment uses. They have to live in the same directory because `SKILL.md` references `ANTIPATTERNS.md` as a sibling file.
+Clone this repo and place `SKILL.md`, `ANTIPATTERNS.md`, `scan.py`, `catalog.py`, and `add_pattern.py` together in whatever skill folder your Claude environment uses. They have to live in the same directory because `SKILL.md` references `ANTIPATTERNS.md` as a sibling, and `scan.py` imports `catalog.py` and reads `ANTIPATTERNS.md` from the same folder.
 
 ## How it triggers
 
@@ -73,7 +75,7 @@ It does **not** fire on code, technical docs, code reviews, resumes/CVs, casual 
 Not all antipatterns carry the same weight.
 
 - **Tier 1 (catastrophic):** Zero tolerance. One instance ruins the piece. Examples: `delve`, `tapestry`, "In today's fast-paced world," chirpy closers.
-- **Tier 2 (density-dependent):** Fine in isolation. Disastrous when clustered. Examples: `furthermore`, `leverage`, `robust`.
+- **Tier 2 (density-dependent):** Fine in isolation. Disastrous when clustered. Examples: `furthermore`, `landscape`, `nuanced`.
 - **Tier 3 (context-dependent):** Legitimate vocabulary that gets reached for as filler. Use the removal test. Examples: `critical`, `essential`, `vital`.
 
 ## The removal test (for Tier 3)
@@ -86,6 +88,22 @@ If **yes**, the word was filler. Cut it.
 If **no**, keep it.
 
 Example: "It's critical to plan ahead." → Remove "critical" → "It's important to plan ahead" reads the same → word was filler. Rewrite with a real reason: "Plan ahead or you'll miss the window."
+
+## The deterministic density scan (`scan.py`)
+
+The whole skill rests on the claim that AI tells are about **density**, not banned words. `scan.py` turns that claim into a measurement. It reads `ANTIPATTERNS.md` as its source of truth and counts every Tier 1/2/3 word and phrase (plus em-dashes), then reports per-paragraph density so you know exactly how many tells cluster together instead of eyeballing it.
+
+```bash
+python scan.py path/to/draft.md            # human-readable report
+python scan.py draft.md --json             # machine-readable
+python scan.py draft.md --strict           # exit 1 if any Tier 1 hit or em-dash (CI / pre-commit)
+python scan.py draft.md --allow leverage   # suppress a word that's part of your voice
+cat draft.md | python scan.py -            # stdin
+```
+
+It is **lexical only**. It catches words, exact phrases, and em-dashes. It cannot see structure (antithesis tics, triplet rhythm, colon density) - that stays the model's job. Run it as the floor; let judgment handle the rest.
+
+Tier 3 words are listed as **candidates for the removal test**, never auto-flagged, because by definition those need a human call.
 
 ## Adding new patterns
 

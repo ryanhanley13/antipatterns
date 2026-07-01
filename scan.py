@@ -10,7 +10,9 @@ per-paragraph density - so density is measured, not eyeballed.
 Scope is lexical: single words, exact phrases, and em-dashes (the one
 structural tell that is countable). Structural judgment (antithesis tics,
 triplet rhythm, colon density, anaphora) stays with the model - a regex can't
-catch those, and shouldn't pretend to.
+catch those, and shouldn't pretend to. Tier 1/2 words match their regular
+inflections (-s/-ing/-ed/-ly), so "leveraged", "navigating", and "seamlessly"
+count; Tier 3 (removal-test) words stay exact.
 
 Stdlib-only, matching the rest of the skill.
 
@@ -40,6 +42,13 @@ DEFAULT_CATALOG = Path(__file__).resolve().parent / "ANTIPATTERNS.md"
 # cluster. Per ANTIPATTERNS.md §13: "Three is a confession."
 CLUSTER_THRESHOLD = 3
 
+# Whole-piece Tier-2 density ceiling. Paragraph clusters catch tells that pile
+# up in one place; this catches diffuse density - too many Tier-2 hits spread
+# across the piece to cluster, but still AI-dense overall. Guarded by a minimum
+# word count so a single hit in a 50-word note (20/1000) can't trip it.
+DENSE_PER_1000 = 5.0
+DENSE_MIN_WORDS = 200
+
 
 # -------------------------------------------------------------------------- #
 # Text helpers
@@ -66,23 +75,71 @@ def split_paragraphs(text: str) -> list[str]:
     return [p for p in re.split(r"\n\s*\n", text) if p.strip()]
 
 
+def _inflected_forms(base: str) -> list[str]:
+    """The base word plus its safe regular inflections, longest-first.
+
+    Covers -s/-es/-ing/-ed/-d/-ly with the silent-e drop ('leverage' ->
+    'leveraging', 'navigate' -> 'navigating', 'delve' -> 'delving'), plus the
+    two adjective families whose adverbs don't take plain -ly: -ic -> -ically
+    (holistic -> holistically, strategic -> strategically) and -able -> -ably
+    (sustainable -> sustainably, scalable -> scalably).
+
+    Deliberately NOT generated: derivational suffixes (-ation/-tion/-ment/-er,
+    etc.) that build different words cataloged separately (optimize vs
+    optimization, transform vs transformation) - and _word_pattern's `reserved`
+    guard drops any generated form that is itself another entry. Irregular
+    forms (driven, drove, woven) are out of a regex's reach.
+    """
+    base = base.lower()
+    ends_e = base.endswith("e")
+    stem = base[:-1] if ends_e else base
+    forms = {base}
+    forms.add(base + "s")
+    forms.add(base + "es")  # -s/-ss/-ch/-sh stems (harness -> harnesses)
+    forms.add((stem + "ing") if ends_e else (base + "ing"))
+    forms.add((base + "d") if ends_e else (base + "ed"))
+    forms.add(base + "ly")
+    if base.endswith("ic"):
+        forms.add(base + "ally")      # holistic -> holistically
+    if base.endswith("able"):
+        forms.add(base[:-2] + "ly")   # sustainable -> sustainably
+    return sorted(forms, key=len, reverse=True)
+
+
+def _word_pattern(base: str, inflect: bool, reserved: frozenset[str] = frozenset()) -> str:
+    """Regex source matching a word, optionally with its regular inflections.
+
+    `reserved` is the set of all catalog entry texts. When inflecting, any
+    generated form that is itself another entry's exact text is dropped, so a
+    token can't be double-counted across two entries - 'optimized' is both a
+    Tier-2 adjective and the -d form of 'optimize', so only the adjective
+    entry should match it (not both).
+    """
+    forms = _inflected_forms(base) if inflect else [base.lower()]
+    if inflect and reserved:
+        forms = [f for f in forms if f == base.lower() or f not in reserved]
+    return r"\b(?:" + "|".join(re.escape(f) for f in forms) + r")\b"
+
+
 def hits_in_block(block: str, entries: list[Entry]) -> dict[Entry, int]:
     """Return {Entry: count} for entries found in block, case-insensitively.
 
-    Words match on word boundaries (so 'leverage' != 'leveraged'); phrases
-    match as whitespace-normalized substrings.
+    Words match on word boundaries; Tier 1/2 words also match their regular
+    inflections (-s/-ing/-ed/-ly) so 'leveraged', 'navigating', and
+    'seamlessly' count. Tier 3 (removal-test) words stay exact: their adverb
+    forms are usually legit and would collide with separate catalog entries
+    (the T3 'essential' vs the T2 'Essentially'). Phrases match as
+    whitespace-normalized substrings.
     """
     block_l = normalize_ws(block).lower()
+    reserved = frozenset(e.text.lower() for e in entries)
     out: dict[Entry, int] = {}
     for e in entries:
         t = e.text.lower()
         if not t:
             continue
         if e.is_word:
-            # NOTE: exact word-boundary match. Inflections (-s/-ing/-ed) are
-            # not auto-matched; that is a deliberate v1 simplification, not a
-            # rule about whether they count.
-            n = len(re.findall(r"\b" + re.escape(t) + r"\b", block_l))
+            n = len(re.findall(_word_pattern(t, inflect=e.tier in (1, 2), reserved=reserved), block_l))
         else:
             n = block_l.count(t)
         if n:
@@ -129,6 +186,9 @@ def scan(text: str, catalog, allow: list[str] | None = None) -> dict:
                 {"paragraph": i + 1, "entries": entries, "count": count_in_para}
             )
     per_1000 = round(tier2_total / word_count * 1000, 1) if word_count else 0.0
+    # Diffuse density: too many Tier-2 hits spread across the whole piece to
+    # form a paragraph cluster, but still AI-dense overall.
+    dense = word_count >= DENSE_MIN_WORDS and per_1000 >= DENSE_PER_1000
 
     # Tier 3: candidates only. Never auto-flagged - they need the removal test.
     tier3 = [{"entry": e, "count": n} for e, n in whole.items() if e.tier == 3]
@@ -144,6 +204,7 @@ def scan(text: str, catalog, allow: list[str] | None = None) -> dict:
             "clusters": clusters,
             "total": tier2_total,
             "per_1000": per_1000,
+            "dense": dense,
         },
         "tier3": tier3,
     }
@@ -177,6 +238,7 @@ def to_jsonable(result: dict, source: str) -> dict:
             ],
             "total": result["tier2"]["total"],
             "per_1000": result["tier2"]["per_1000"],
+            "dense": result["tier2"]["dense"],
         },
         "tier3": [
             {"entry": _entry_dict(h["entry"]), "count": h["count"]}
@@ -218,6 +280,12 @@ def render_human(result: dict, source: str) -> str:
             out.append(
                 f"  whole piece: {t2['total']} hits / {m['words']} words "
                 f"({t2['per_1000']} per 1000)"
+            )
+        if t2["dense"]:
+            out.append(
+                f"  DENSE: {t2['per_1000']} per 1000 across the whole piece "
+                f"(ceiling {DENSE_PER_1000}/1000 over {DENSE_MIN_WORDS}+ words) "
+                f"- diffuse AI density even without a paragraph cluster"
             )
     out.append("")
 

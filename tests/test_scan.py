@@ -39,12 +39,63 @@ class TestScanLogic(unittest.TestCase):
         self.assertIn("delve", hits)
         self.assertEqual(hits["delve"], 3)
 
-    # --- Word boundaries: 'leveraged' is not 'leverage' ---
-    def test_word_boundary_no_substring_match(self):
-        r = scan.scan("We saw leveraged growth and seamlessly integrated tools.", self.cat)
-        # 'leveraged' must not match 'leverage'; 'seamlessly' must not match 'seamless'.
-        self.assertNotIn("leverage", t1_texts(r))
-        self.assertNotIn("seamless", t1_texts(r))
+    # --- Inflection matching: Tier 1/2 words match their regular inflections
+    #     (-s/-ing/-ed/-ly, silent-e drop), so 'leveraged', 'navigating',
+    #     'seamlessly' count. (Supersedes the old exact-match-only behavior.) ---
+    def test_inflection_matches_verb_forms(self):
+        r = scan.scan(
+            "They leveraged the data, navigated the complexities, fostered "
+            "collaboration, and delved deeper.",
+            self.cat,
+        )
+        hits = t1_texts(r)
+        self.assertIn("leverage", hits)
+        self.assertIn("navigate", hits)
+        self.assertIn("foster", hits)
+        self.assertIn("delve", hits)
+
+    def test_inflection_matches_adverb_form(self):
+        # 'seamlessly' and 'robustly' -> seamless / robust (Tier 1 adjectives).
+        r = scan.scan("A seamlessly integrated, robustly defended system.", self.cat)
+        self.assertIn("seamless", t1_texts(r))
+        self.assertIn("robust", t1_texts(r))
+
+    def test_inflection_no_double_count_verb_vs_derived_noun(self):
+        # 'optimization' is its own Tier-2 noun; it must NOT also match the verb
+        # 'optimize'. Derivational -ation is excluded on purpose.
+        opt = next(e for e in self.cat.entries if e.text.lower() == "optimize")
+        hits = scan.hits_in_block("a big optimization effort", self.cat.entries)
+        self.assertNotIn(opt, hits)
+
+    def test_tier3_words_do_not_inflect(self):
+        # Tier-3 'essential' must NOT match 'essentially' (its own T2 entry).
+        # Intensifier adverbs ('critically', 'essentially') are usually legit.
+        ess = next(e for e in self.cat.entries if e.text.lower() == "essential")
+        hits = scan.hits_in_block("done essentially right", self.cat.entries)
+        self.assertNotIn(ess, hits)
+
+    # --- Regression (Codex review on #7): a token that is BOTH a catalog entry
+    #     and another entry's inflection must count once. 'optimized' is a
+    #     Tier-2 adjective AND the -d form of 'optimize', so 'optimized
+    #     optimized' is two hits, not four, and must not fake a cluster. ---
+    def test_no_double_count_when_inflection_is_separate_entry(self):
+        r = scan.scan("optimized optimized", self.cat)
+        self.assertEqual(r["tier2"]["total"], 2)  # not 4
+        self.assertEqual(len(r["tier2"]["clusters"]), 0)  # 2 < 3, no cluster
+        opt = next(e for e in self.cat.entries if e.text.lower() == "optimize")
+        self.assertNotIn(opt, scan.hits_in_block("optimized optimized", self.cat.entries))
+
+    # --- Regression (Codex review on #7): -ic and -able adjectives form their
+    #     adverbs as -ically / -ably, not plain -ly. ---
+    def test_inflection_generates_ically_and_ably_adverbs(self):
+        text = "holistically and strategically sound, sustainably built."
+        hits = scan.hits_in_block(text, self.cat.entries)
+        holistic = next(e for e in self.cat.entries if e.text.lower() == "holistic")
+        strategic = next(e for e in self.cat.entries if e.text.lower() == "strategic")
+        sustainable = next(e for e in self.cat.entries if e.text.lower() == "sustainable")
+        self.assertIn(holistic, hits)
+        self.assertIn(strategic, hits)
+        self.assertIn(sustainable, hits)
 
     # --- Phrase matching (opener) ---
     def test_tier1_phrase_matched(self):
@@ -86,6 +137,24 @@ class TestScanLogic(unittest.TestCase):
         para2 = "Furthermore, we agree. Moreover, it works. Additionally, it scales."
         r = scan.scan(f"{para1}\n\n{para2}", self.cat)
         self.assertEqual(r["tier2"]["clusters"][0]["paragraph"], 2)
+
+    # --- Whole-piece Tier-2 density ceiling (diffuse density, no cluster) ---
+    def test_dense_flag_when_whole_piece_rate_high(self):
+        # 6 Tier-2 hits spread 2-per-paragraph across 250+ words: no paragraph
+        # reaches the cluster threshold (3), but the whole-piece rate trips the
+        # diffuse-density ceiling - exactly the case clusters miss.
+        pad = lambda n: " ".join("word" for _ in range(n))
+        p1 = f"Furthermore and moreover, {pad(80)}"
+        p2 = f"Additionally and ultimately, {pad(80)}"
+        p3 = f"Notably, that said, {pad(90)}"
+        r = scan.scan(f"{p1}\n\n{p2}\n\n{p3}", self.cat)
+        self.assertEqual(len(r["tier2"]["clusters"]), 0)  # spread out, no cluster
+        self.assertTrue(r["tier2"]["dense"])
+
+    def test_dense_flag_off_below_min_words(self):
+        # Same density but under the minimum word count: clusters only, no dense.
+        r = scan.scan("Furthermore. Moreover. Additionally. Ultimately. Notably. That said.", self.cat)
+        self.assertFalse(r["tier2"]["dense"])
 
     # --- Tier 3: candidate only, never a flag ---
     def test_tier3_candidate_never_flagged_as_tier1(self):

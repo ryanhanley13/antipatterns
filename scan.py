@@ -115,14 +115,19 @@ def scan(text: str, catalog, allow: list[str] | None = None) -> dict:
             para = next((i + 1 for i, h in enumerate(para_hits) if e in h), None)
             tier1.append({"entry": e, "count": n, "paragraph": para})
 
-    # Tier 2: density. Cluster when >= CLUSTER_THRESHOLD distinct hits in one
-    # paragraph; also report whole-piece totals.
+    # Tier 2: density. Cluster when a paragraph accumulates >= CLUSTER_THRESHOLD
+    # Tier-2 hits by COUNT (repeats count - three "Furthermore"s is as much a
+    # confession as three different transitions, per ANTIPATTERNS.md section 13).
+    # This matches the whole-piece total below, which also sums counts.
     tier2_total = sum(n for e, n in whole.items() if e.tier == 2)
     clusters = []
     for i, h in enumerate(para_hits):
-        distinct = [e for e in h if e.tier == 2]
-        if len(distinct) >= CLUSTER_THRESHOLD:
-            clusters.append({"paragraph": i + 1, "entries": distinct})
+        entries = [e for e in h if e.tier == 2]
+        count_in_para = sum(h[e] for e in entries)
+        if count_in_para >= CLUSTER_THRESHOLD:
+            clusters.append(
+                {"paragraph": i + 1, "entries": entries, "count": count_in_para}
+            )
     per_1000 = round(tier2_total / word_count * 1000, 1) if word_count else 0.0
 
     # Tier 3: candidates only. Never auto-flagged - they need the removal test.
@@ -165,6 +170,7 @@ def to_jsonable(result: dict, source: str) -> dict:
             "clusters": [
                 {
                     "paragraph": c["paragraph"],
+                    "count": c["count"],
                     "entries": [_entry_dict(e) for e in c["entries"]],
                 }
                 for c in result["tier2"]["clusters"]
@@ -205,7 +211,7 @@ def render_human(result: dict, source: str) -> str:
         for c in t2["clusters"]:
             names = ", ".join(e.text for e in c["entries"])
             out.append(
-                f'  para {c["paragraph"]} cluster ({len(c["entries"])}): '
+                f'  para {c["paragraph"]} cluster ({c["count"]} hits): '
                 f"{names}  <- 'three is a confession'"
             )
         if t2["total"]:

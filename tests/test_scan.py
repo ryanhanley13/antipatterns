@@ -62,8 +62,24 @@ class TestScanLogic(unittest.TestCase):
         text = "Furthermore, we agree. Moreover, it works. Additionally, it scales."
         r = scan.scan(text, self.cat)
         self.assertEqual(len(r["tier2"]["clusters"]), 1)
-        cluster_entries = {e.text.lower() for e in r["tier2"]["clusters"][0]["entries"]}
+        c = r["tier2"]["clusters"][0]
+        self.assertEqual(c["count"], 3)
+        cluster_entries = {e.text.lower() for e in c["entries"]}
         self.assertEqual(cluster_entries, {"furthermore", "moreover", "additionally"})
+
+    # --- Regression (Codex review): 3 repeats of ONE Tier-2 word = cluster.
+    #     Per ANTIPATTERNS.md section 13: "Three is a confession." Repeats must
+    #     count toward the threshold, not just distinct entries. ---
+    def test_density_three_repeats_of_one_word_cluster(self):
+        r = scan.scan("Furthermore. Furthermore. Furthermore.", self.cat)
+        self.assertEqual(len(r["tier2"]["clusters"]), 1)
+        c = r["tier2"]["clusters"][0]
+        self.assertEqual(c["count"], 3)
+        self.assertEqual({e.text.lower() for e in c["entries"]}, {"furthermore"})
+
+    def test_density_two_repeats_no_cluster(self):
+        r = scan.scan("Furthermore. Furthermore.", self.cat)
+        self.assertEqual(len(r["tier2"]["clusters"]), 0)
 
     def test_cluster_paragraph_index_is_correct(self):
         para1 = "A clean opening paragraph about ordinary insurance topics."

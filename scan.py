@@ -23,6 +23,7 @@ Usage:
     cat draft.md | python scan.py
     python scan.py draft.md --strict        # exit 1 if any Tier 1 hit / em-dash
     python scan.py draft.md --allow leverage,ecosystem   # suppress per-run
+    python scan.py draft.md --discover      # list uncataloged words that repeat
 """
 
 from __future__ import annotations
@@ -48,6 +49,35 @@ CLUSTER_THRESHOLD = 3
 # word count so a single hit in a 50-word note (20/1000) can't trip it.
 DENSE_PER_1000 = 5.0
 DENSE_MIN_WORDS = 200
+
+# Candidate discovery (--discover): minimum repeat count for an uncataloged
+# word to surface as a removal-test candidate. Matches the catalog's
+# "three is a confession" ethos.
+DISCOVER_DEFAULT_MIN = 3
+
+# Common English function words excluded from candidate discovery so it
+# surfaces content-word repeats (model fixation), not "the/and/of". Tells are
+# uncommon words by nature, so a function-word stoplist won't hide them; the
+# short-token filter (<4 chars) is a backstop. Discovery is advisory: a
+# surfaced word is a removal-test candidate, never a flag.
+_STOPWORDS = frozenset(
+    """
+    about above after again against all also although always among any are
+    around as at away back be because been before being below between both but
+    by came can cannot case come could day did do does doing done down during
+    each either else end even ever every example fact few first for from get
+    give go good got had has have having he her here him himself his how if in
+    into is it its itself just keep kind know last let like little long look
+    lot made make many may me might more most much must my myself near need
+    never new no none nor not nothing now of off often old on once one only or
+    other our ours out over own part perhaps place point put said same say see
+    seem self she should side since so some something sometimes sort still such
+    take tell than that their them then there these they this those though
+    through throughout time to today together too toward under until up upon us
+    use used very was way we well went were what when where whether which while
+    who whom why will with within without would yes yet you your yours
+    """.split()
+)
 
 
 # -------------------------------------------------------------------------- #
@@ -222,6 +252,40 @@ def scan(text: str, catalog, allow: list[str] | None = None) -> dict:
     }
 
 
+def discover_candidates(text: str, catalog, min_count: int = DISCOVER_DEFAULT_MIN) -> list[dict]:
+    """Find uncommon words that repeat but the catalog doesn't catch yet.
+
+    Data-driven discovery to feed the propose->apply loop: surfaces model
+    fixation (a word the model reaches for repeatedly) that ANTIPATTERNS.md
+    doesn't know about. Advisory only - each result is a removal-test
+    candidate, never a flag. Filters common function words (_STOPWORDS) and
+    tokens shorter than 4 chars, and excludes anything the scanner already
+    recognizes (a catalog entry or one of its inflections), so e.g. a draft
+    full of 'leveraged' does not re-suggest 'leverage'.
+    """
+    clean = strip_code(text)
+    tokens = [t for t in re.findall(r"[a-z']+", clean.lower()) if len(t) >= 4]
+
+    # Surface forms the scanner already recognizes: each Tier 1/2 word plus its
+    # regular inflections, and Tier 3 words verbatim (they don't inflect).
+    known: set[str] = set()
+    for e in catalog.words:
+        if e.tier in (1, 2):
+            known.update(_inflected_forms(e.text))
+        else:
+            known.add(e.text.lower())
+
+    counts: dict[str, int] = {}
+    for t in tokens:
+        if t in _STOPWORDS or t in known:
+            continue
+        counts[t] = counts.get(t, 0) + 1
+
+    candidates = [{"word": w, "count": c} for w, c in counts.items() if c >= min_count]
+    candidates.sort(key=lambda d: (-d["count"], d["word"]))
+    return candidates
+
+
 # -------------------------------------------------------------------------- #
 # Rendering
 # -------------------------------------------------------------------------- #
@@ -256,6 +320,7 @@ def to_jsonable(result: dict, source: str) -> dict:
             {"entry": _entry_dict(h["entry"]), "count": h["count"]}
             for h in result["tier3"]
         ],
+        "candidates": result.get("candidates", []),
     }
 
 
@@ -314,6 +379,14 @@ def render_human(result: dict, source: str) -> str:
         out.append("  " + ", ".join(parts))
     out.append("")
 
+    # CANDIDATES (only when discovery was requested via --discover)
+    candidates = result.get("candidates")
+    if candidates:
+        out.append("CANDIDATES (uncataloged repeats - removal test / consider adding)")
+        parts = [f'{c["word"]} x{c["count"]}' for c in candidates]
+        out.append("  " + ", ".join(parts))
+        out.append("")
+
     n1 = len(t1) + (1 if m["em_dashes"] else 0)
     out.append(
         f"SUMMARY: {n1} tier-1, {len(t2['clusters'])} cluster(s), "
@@ -352,6 +425,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="",
         help="comma-separated words/phrases to suppress this run (your-vocabulary guardrail)",
     )
+    p.add_argument(
+        "--discover",
+        action="store_true",
+        help="also list uncataloged words that repeat (candidate discovery for the propose->apply loop)",
+    )
+    p.add_argument(
+        "--discover-min",
+        type=int,
+        default=DISCOVER_DEFAULT_MIN,
+        metavar="N",
+        help=f"min repeat count for --discover candidates (default {DISCOVER_DEFAULT_MIN})",
+    )
     return p
 
 
@@ -373,6 +458,11 @@ def main(argv: list[str] | None = None) -> int:
 
     allow = [a.strip() for a in args.allow.split(",") if a.strip()] or None
     result = scan(text, catalog, allow=allow)
+
+    if args.discover:
+        result["candidates"] = discover_candidates(
+            text, catalog, min_count=args.discover_min
+        )
 
     if args.json:
         print(json.dumps(to_jsonable(result, source), indent=2, ensure_ascii=False))

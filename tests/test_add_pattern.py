@@ -126,6 +126,24 @@ class TestApplyAddition(unittest.TestCase):
         self.assertLess(parent, note, "nested note should follow its parent bullet")
         self.assertLess(note, newb, "new bullet must come AFTER the nested note")
 
+    def test_empty_tier_immediately_followed_by_next_marker(self):
+        # Regression (Codex review on #8): adding to a tier that has no bullets
+        # and is immediately followed by the next tier marker must put the new
+        # bullet on its own line, not glued to the marker ("**Tier 1:**- ...",
+        # which the parser would swallow as inline marker text).
+        synthetic = (
+            "## 2. Throat-Clearing Openers [Tier 1 to Tier 2]\n\n"
+            "**Tier 1 (never use):**\n"
+            "**Tier 2 (depends on density):**\n"
+            '- "At its core,"\n\n'
+            "## 3. Sycophancy [Tier 1]\n"
+        )
+        new = ap.apply_addition(
+            synthetic, ap.Addition(section="2", tier=1, text="Another opener")
+        )
+        self.assertIsNotNone(find(parse_catalog_text(new), "Another opener"))
+        self.assertNotIn("**Tier 1 (never use):**-", new)
+
 
 class TestParseSpec(unittest.TestCase):
     def test_single_object_becomes_list(self):

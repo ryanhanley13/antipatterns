@@ -144,8 +144,15 @@ def add_to_tiered_section(content, section_num, tier, bullet_content):
 
     new_bullet_line = f"- {bullet_content}\n"
     if last_top is None:
-        # Tier marker exists but no bullets yet. Insert right after the marker.
-        tier_lines.insert(0, new_bullet_line)
+        # No bullets in this tier yet. tier_text normally starts with the
+        # newline that follows the marker; insert the bullet AFTER it so the
+        # bullet lands on its own line instead of glued to the marker
+        # ("**Tier 1:**- ...", which the parser would swallow as inline text).
+        # If there's no leading newline, supply one.
+        if tier_lines and tier_lines[0] == "\n":
+            tier_lines.insert(1, new_bullet_line)
+        else:
+            tier_lines.insert(0, "\n" + new_bullet_line)
     else:
         # Insert AFTER the last top-level bullet, skipping any indented children
         # (whitespace-leading, non-blank) so a nested note isn't orphaned under

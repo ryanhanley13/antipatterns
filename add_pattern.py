@@ -95,7 +95,13 @@ def add_to_flat_section(content, section_num, pattern):
 
 
 def add_to_tiered_section(content, section_num, tier, bullet_content):
-    """Append a bullet under a specific tier inside a tier-split section."""
+    """Append a bullet under a specific tier inside a tier-split section.
+
+    Lands the new bullet AFTER the last top-level bullet and any indented
+    children belonging to it, so a nested note isn't orphaned under the new
+    bullet. Mirrors add_to_flat_section. (No tiered section currently has
+    nested children, so the child-skipping is defensive.)
+    """
     section_header_re = re.compile(
         rf"^## {re.escape(section_num)}\. .*$", re.MULTILINE
     )
@@ -127,21 +133,40 @@ def add_to_tiered_section(content, section_num, tier, bullet_content):
     ntm = next_tier_re.search(content, tm.end(), section_end_pos)
     tier_end = ntm.start() if ntm else section_end_pos
 
-    tier_text = content[tm.end():tier_end]
-    # Top-level bullets only (no leading whitespace, so sub-bullets are skipped)
-    bullet_re = re.compile(r"^- .+$", re.MULTILINE)
-    bullets = list(bullet_re.finditer(tier_text))
+    tier_lines = content[tm.end():tier_end].splitlines(keepends=True)
 
-    if not bullets:
-        # Tier marker exists but no bullets yet. Insert right after the marker.
-        insert_pos = tm.end()
-        new_line = f"\n- {bullet_content}"
+    # Last top-level bullet (starts with "- "; indented children start with
+    # whitespace and are excluded here).
+    last_top = None
+    for idx, ln in enumerate(tier_lines):
+        if ln.startswith("- "):
+            last_top = idx
+
+    new_bullet_line = f"- {bullet_content}\n"
+    if last_top is None:
+        # No bullets in this tier yet. tier_text normally starts with the
+        # newline that follows the marker; insert the bullet AFTER it so the
+        # bullet lands on its own line instead of glued to the marker
+        # ("**Tier 1:**- ...", which the parser would swallow as inline text).
+        # If there's no leading newline, supply one.
+        if tier_lines and tier_lines[0] == "\n":
+            tier_lines.insert(1, new_bullet_line)
+        else:
+            tier_lines.insert(0, "\n" + new_bullet_line)
     else:
-        last = bullets[-1]
-        insert_pos = tm.end() + last.end()
-        new_line = f"\n- {bullet_content}"
+        # Insert AFTER the last top-level bullet, skipping any indented children
+        # (whitespace-leading, non-blank) so a nested note isn't orphaned under
+        # the new bullet. Stop at a blank line so insertion stays tight.
+        ins = last_top + 1
+        while (
+            ins < len(tier_lines)
+            and tier_lines[ins][:1].isspace()
+            and tier_lines[ins].strip()
+        ):
+            ins += 1
+        tier_lines.insert(ins, new_bullet_line)
 
-    return content[:insert_pos] + new_line + content[insert_pos:]
+    return content[:tm.end()] + "".join(tier_lines) + content[tier_end:]
 
 
 def add_to_vocab_inline(content, sub_header_text, tier, word):
@@ -247,7 +272,10 @@ def apply_addition(content: str, add: Addition) -> str:
     if meta is None:
         raise ValueError(
             f"Unknown section {add.section!r}. Known: {sorted(SECTION_NUMS, key=int)}. "
-            f"(Creating brand-new sections isn't supported - add those manually.)"
+            f"New sections are added manually (by design - section layout is the "
+            f"single source of truth): add ('{add.section}', 'Name', 'flat|tiered|vocab') "
+            f"to SECTIONS in catalog.py, then add the '## {add.section}. Name' "
+            f"section to ANTIPATTERNS.md."
         )
     _num, _name, kind = meta
     text = add.text.strip().strip('"').strip()

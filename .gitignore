@@ -25,3 +25,6 @@ Thumbs.db
 .env
 .env.local
 *.local
+
+# Build artifact (published via GitHub Releases, not committed)
+antipatterns.skill

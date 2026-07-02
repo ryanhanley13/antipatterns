@@ -4,6 +4,8 @@ A [Claude skill](https://docs.claude.com/en/docs/agents-and-tools/agent-skills) 
 
 Built originally for [Ryan Hanley's](https://ryanhanley.com) content workflow at Finding Peak. The catalog is opinionated, the voice is specific, and that's the point. **Fork it, customize it, and make it yours.**
 
+> **Want to run it in Claude, Manus, ChatGPT, or Gemini?** See [USING.md](USING.md) for the one-page, per-tool setup. The Claude quickstart is below.
+
 ## What it does
 
 Detects the structural patterns, vocabulary, and rhythms that make text read like a language model wrote it:
@@ -34,11 +36,12 @@ Then it rewrites the offending sections and runs a **voice drift check** to make
 | File | Purpose |
 |------|---------|
 | `SKILL.md` | The skill procedure: when to trigger, workflow, output format, failure modes |
-| `ANTIPATTERNS.md` | The catalog: 15 sections, ~180 patterns, tier system, removal test, voice drift check |
+| `ANTIPATTERNS.md` | The catalog: 15 sections, ~200 patterns, tier system, removal test, voice drift check |
 | `scan.py` | Deterministic lexical-density sweeper: counts every tell, reports per-paragraph density |
 | `catalog.py` | Parser that turns `ANTIPATTERNS.md` into structured lists (used by `scan.py`) |
 | `add_pattern.py` | Interactive CLI for adding new patterns as you spot them |
-| `antipatterns.skill` | Packaged installable bundle for Claude.ai |
+
+The packaged `antipatterns.skill` and the ready-to-paste ChatGPT/Gemini wrappers are build artifacts on the [Releases](../../releases) page, not committed files. See [USING.md](USING.md) for which one each tool uses.
 
 ## Installation
 
@@ -65,7 +68,7 @@ Clone this repo and place `SKILL.md`, `ANTIPATTERNS.md`, `scan.py`, `catalog.py`
 The skill fires automatically when you:
 
 - Paste a draft and ask for review, edits, or cleanup
-- Ask Claude to write content (LinkedIn posts, blog posts, podcast scripts, newsletters, etc.) — it scans its own output before delivering
+- Ask Claude to write content (LinkedIn posts, blog posts, podcast scripts, newsletters, etc.) - it scans its own output before delivering
 - Use phrases like "voice check," "AI tells," "antipatterns," "tighten this," "clean this up," or "make this not suck"
 
 It does **not** fire on code, technical docs, code reviews, resumes/CVs, casual chat, summaries, translations, outlines, or pre-draft brainstorming.
@@ -117,7 +120,7 @@ python add_pattern.py path/to/ANTIPATTERNS.md
 
 Prompts walk you through section selection (15 categories), tier assignment (for tier-split sections), the pattern text, and a change-log entry.
 
-Non-interactive batch — apply a JSON spec directly (the way to apply the skill's own proposals without re-typing):
+Non-interactive batch - apply a JSON spec directly (the way to apply the skill's own proposals without re-typing):
 
 ```bash
 python add_pattern.py --apply additions.json path/to/ANTIPATTERNS.md
@@ -156,9 +159,10 @@ Run editorial first, antipatterns second.
 
 ## Development
 
-Pure stdlib Python - no dependencies. One helper script in `tools/`:
+Pure stdlib Python - no dependencies. Helper scripts in `tools/`:
 
 - `python tools/build_bundle.py` - rebuild `antipatterns.skill` from the runtime files (`SKILL.md`, `ANTIPATTERNS.md`, `scan.py`, `catalog.py`, `add_pattern.py`). Useful for inspecting the bundle locally.
+- `python tools/export.py` - regenerate `USING.md` (the multi-tool guide) and the `dist/` platform wrappers from the source. Run it after editing the catalog; `--check` (run in CI) fails if the committed `USING.md` drifts.
 
 Tests are stdlib `unittest`:
 

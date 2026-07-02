@@ -1,29 +1,40 @@
 #!/usr/bin/env python3
-"""export.py - generate platform wrappers from the skill source.
+"""export.py - generate the sharing surface from the skill source.
 
 The skill source (SKILL.md + ANTIPATTERNS.md) is the single source of truth.
-Claude and Manus consume it DIRECTLY - they share the same open Agent Skills
-format (SKILL.md + resources, three-level progressive disclosure), and Manus
-even imports a skill from a GitHub repo URL. So those two platforms need NO
-generated wrapper.
+Claude and Manus consume it DIRECTLY - they share the open Agent Skills format
+(SKILL.md + resources), and Manus imports a skill from a GitHub repo URL. Those
+two platforms need no generated artifact: point them at the repo / the .skill.
 
-This script generates wrappers for the tools that DON'T use the skill format:
+This script generates the artifacts for everyone else, all from source so the
+sharing docs can never drift from the catalog:
 
-  - chatgpt-instructions.md : a condensed (<8000 char) instruction set for a
-    ChatGPT Custom GPT's Instructions field. The full catalog won't fit there,
-    so this carries the zero-tolerance core; the full catalog is uploaded as
-    Knowledge (see full-instructions.md).
-  - full-instructions.md    : the procedure + full catalog, for Gemini Gems,
-    API system prompts, Claude Projects, or Custom GPT Knowledge upload.
-  - SETUP.md                : per-platform setup guide.
+  USING.md (repo root, committed)  : the community front door - a one-page
+    "use this in Claude / Manus / ChatGPT / Gemini" guide. Its headline pattern
+    count is pulled live from the catalog, so it updates as the catalog grows.
+    `--check` verifies the committed file matches a fresh generation (CI runs it
+    so a catalog/template edit that isn't regenerated fails loudly).
+
+  dist/<variant>/chatgpt-instructions.md : a condensed (<8000 char) instruction
+    set for a ChatGPT Project's custom-instructions field. The full catalog
+    won't fit there, so this carries the zero-tolerance core; the full list is
+    the uploaded file (full-instructions.md).
+  dist/<variant>/full-instructions.md    : the procedure + full catalog, for a
+    Gemini Gem, an API system prompt, a Claude Project, or a ChatGPT Project's
+    uploaded file.
 
 Two voice variants:
   - ryan       : the author's personal, voice-calibrated cut.
   - community  : generic ("you") + a customize-for-your-voice banner.
 
+The dist/ wrappers are build artifacts (gitignored): the release workflow
+(.github/workflows/release.yml) publishes the community cut to GitHub Releases
+on v* tags.
+
 Stdlib only. Run from the repo root:
-    python tools/export.py                    # both variants -> dist/
+    python tools/export.py                    # USING.md + both variants -> dist/
     python tools/export.py --variant community
+    python tools/export.py --check            # CI: USING.md in sync? exit 1 if not
 """
 
 from __future__ import annotations
@@ -40,12 +51,16 @@ from catalog import parse_catalog  # noqa: E402
 
 SKILL_MD = REPO / "SKILL.md"
 ANTIPATTERNS_MD = REPO / "ANTIPATTERNS.md"
+USING_MD = REPO / "USING.md"
 
-# ChatGPT Custom GPT Instructions field ceiling (leave headroom under 8000).
+REPO_URL = "https://github.com/ryanhanley13/antipatterns"
+RELEASES_URL = REPO_URL + "/releases"
+
+# ChatGPT Project custom-instructions ceiling (leave headroom under 8000).
 CHATGPT_CHAR_LIMIT = 8000
 
 # How many chars of Tier-1 phrases to inline in the condensed ChatGPT set
-# before deferring the rest to the full catalog (Knowledge file).
+# before deferring the rest to the full catalog (the uploaded file).
 PHRASE_BUDGET = 2400
 
 
@@ -123,12 +138,12 @@ Any "no" -> redo the rewrite.
 _VOICE_NOTE_COMMUNITY = (
     "> **Community edition:** the voice traits above are calibrated to the skill's "
     "author. Before relying on the voice drift check, swap them for YOUR traits. "
-    "The full catalog (every Tier 1/2/3 list, all 15 categories) is in the attached "
-    "knowledge file - this condensed set is just the zero-tolerance core."
+    "The full catalog (every Tier 1/2/3 list, all 15 categories) is in the uploaded "
+    "file - this condensed set is just the zero-tolerance core."
 )
 _VOICE_NOTE_RYAN = (
-    "> The full catalog (every Tier 1/2/3 list, all 15 categories) is in the attached "
-    "knowledge file; this condensed set is the zero-tolerance core."
+    "> The full catalog (every Tier 1/2/3 list, all 15 categories) is in the uploaded "
+    "file; this condensed set is the zero-tolerance core."
 )
 
 
@@ -165,7 +180,7 @@ def build_chatgpt(variant: str, catalog) -> str:
 
 
 # -------------------------------------------------------------------------- #
-# Full instructions (Gemini / API / Claude Projects / GPT Knowledge)
+# Full instructions (Gemini Gem / API / Claude Project / ChatGPT Project file)
 # -------------------------------------------------------------------------- #
 
 def build_full(variant: str) -> str:
@@ -174,67 +189,76 @@ def build_full(variant: str) -> str:
 
     banner = (
         "> **Antipatterns - AI-writing-tell scrubber.** Paste this block into your "
-        "tool's system prompt / custom instructions / Gem. (Claude and Manus users: "
-        "use the packaged skill from the repo instead - it loads fully and fires "
+        "tool's system prompt / Gem / Project. (Claude and Manus users: use the "
+        "packaged skill from the repo instead - it loads fully and fires "
         "automatically.)\n\n"
     )
     if variant == "community":
         # Keep the author's voice as a concrete example rather than
         # naive-genericizing the name - a find/replace breaks the surrounding
         # grammar ("you writes", "his voice") and would strip the only concrete
-        # calibration the reader has. The catalog's own "Customizing for your
-        # voice" section tells them exactly what to swap.
+        # calibration the reader has. The catalog's own "Voice Drift Sanity
+        # Check" and "What Good Sounds Like" sections tell them exactly what to
+        # swap.
         banner += (
             "> **Community edition:** this skill is calibrated to its author's voice "
             "(Ryan) - the voice-check traits below are a concrete example to swap for "
-            "your own, not a generic default. Follow the 'Customizing for your voice' "
-            "section in the catalog to retune them.\n\n"
+            "your own, not a generic default. Open the **Voice Drift Sanity Check** "
+            "and **What Good Sounds Like** sections below and replace those traits "
+            "with your own before you rely on them.\n\n"
         )
     return banner + "# PROCEDURE\n\n" + skill + "\n\n---\n\n# CATALOG\n\n" + catalog
 
 
 # -------------------------------------------------------------------------- #
-# SETUP guide
+# USING.md - the community front door (committed; --check keeps it in sync)
 # -------------------------------------------------------------------------- #
 
-def build_setup(variant: str) -> str:
-    edition = "community edition" if variant == "community" else "personal edition"
-    customize = ""
-    if variant == "community":
-        customize = (
-            "\n## Customize for your voice\n"
-            "The voice traits are the author's. Open `full-instructions.md`, find the "
-            "**Voice Drift Sanity Check** and **What Good Sounds Like** sections, and "
-            "replace those traits with your own before you rely on them.\n"
-        )
-    return f"""\
-# Antipatterns - setup ({edition})
+_USING_TEMPLATE = """\
+# Using the Antipatterns skill
 
-Four ways to use the skill, depending on your tool.
+A [Claude skill](https://docs.claude.com/en/docs/agents-and-tools/agent-skills) that scrubs AI writing tells out of a draft while preserving voice. This page gets it running in whatever tool you use. The catalog currently covers **{count} patterns** across 15 categories - that number is pulled live from the source, so it stays honest as the catalog grows.
+
+Claude and Manus speak the open Agent Skills format natively, so they take the skill directly - no wrapper needed. ChatGPT and Gemini don't, so there are ready-to-paste instruction files for those (see [The ready-to-paste files](#the-ready-to-paste-files-chatgpt--gemini) below).
 
 ## Claude (best experience)
-Download `antipatterns.skill` from the repo's Releases page, then Settings ->
-Skills -> Import. The skill loads fully and fires automatically when you paste a
-draft or ask for content.
+Download the latest `antipatterns.skill` from the [Releases]({releases_url}) page, then **Settings -> Skills -> Import**. The skill loads fully and fires automatically when you paste a draft or ask for content.
 
 ## Manus
-Manus -> Skills -> + Add -> Import from GitHub -> paste the repo URL. Manus uses
-the same skill format as Claude, so it imports as-is.
+**Skills -> + Add -> Import from GitHub**, then paste this repo's URL: `{repo_url}`. Manus uses the same skill format as Claude, so it imports as-is.
 
-## ChatGPT (Custom GPT)
-1. Create a new GPT (Explore -> Create).
-2. Paste `chatgpt-instructions.md` into the **Instructions** field.
-3. Upload `full-instructions.md` as a **Knowledge** file (the instructions field
-   can't hold the full catalog, so the condensed set carries the zero-tolerance
-   core and the full list lives in Knowledge).
+## ChatGPT (a Project, not a Custom GPT)
+1. Create a new **Project** (sidebar -> New project).
+2. Paste `chatgpt-instructions.md` into the Project's **custom instructions**.
+3. Upload `full-instructions.md` as a **file** in the Project. The custom-instructions field can't hold the full catalog, so the condensed file carries the zero-tolerance core and the full list lives in the uploaded file.
 
-## Gemini (or any tool with a system prompt)
-Paste the contents of `full-instructions.md` as your Gem instructions / system
-prompt / custom instructions.
-{customize}
-The source of truth is always `ANTIPATTERNS.md` + `SKILL.md` in the repo; these
-files are generated from them by `tools/export.py`.
+## Gemini
+Create a **Gem**, then paste the contents of `full-instructions.md` as the Gem's instructions. Gems accept long instructions, so the full catalog fits in one paste.
+
+## The ready-to-paste files (ChatGPT / Gemini)
+Grab these from the [Releases]({releases_url}) page - the **community** cut is what most people want:
+
+- **`chatgpt-instructions.md`** - the condensed (under 8,000-character) zero-tolerance core. Goes in a ChatGPT Project's custom instructions.
+- **`full-instructions.md`** - the full procedure + catalog. Upload it to a ChatGPT Project, or paste it into a Gemini Gem / any tool with a system-prompt field.
+
+To regenerate them locally (for example the `ryan` personal cut): `python tools/export.py`.
+
+## Customize for your voice
+This skill is calibrated to its author's voice. Before you rely on the voice drift check, open the catalog (`ANTIPATTERNS.md`), find the **Voice Drift Sanity Check** and **What Good Sounds Like** sections, and replace those traits with your own. The skill works best when it's tuned to you - a generic anti-AI filter strips voice along with the tells.
+
+---
+
+The source of truth is always `ANTIPATTERNS.md` + `SKILL.md` in the repo. `USING.md` and the `dist/` wrappers are generated from them by `tools/export.py`.
 """
+
+
+def build_using(catalog) -> str:
+    """The one-page, multi-tool usage guide. Live pattern count from the catalog."""
+    return _USING_TEMPLATE.format(
+        count=len(catalog.entries),
+        releases_url=RELEASES_URL,
+        repo_url=REPO_URL,
+    )
 
 
 # -------------------------------------------------------------------------- #
@@ -242,6 +266,28 @@ files are generated from them by `tools/export.py`.
 # -------------------------------------------------------------------------- #
 
 VARIANTS = ("ryan", "community")
+
+
+def check_using(catalog, using_path: Path = USING_MD) -> int:
+    """Return 0 if USING.md (at using_path) matches a fresh generation, else 1.
+
+    Writes nothing. CI runs this so a catalog/template edit that isn't
+    regenerated fails loudly instead of shipping a stale guide. `using_path`
+    defaults to the committed guide and is parameterized for testing.
+    """
+    if not using_path.exists():
+        print("::error::USING.md is missing; run `python tools/export.py` to generate it.")
+        return 1
+    actual = using_path.read_text(encoding="utf-8")
+    expected = build_using(catalog)
+    if actual != expected:
+        print(
+            "::error::USING.md is out of sync with the catalog; run "
+            "`python tools/export.py` and commit the result."
+        )
+        return 1
+    print("USING.md is in sync.")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -255,13 +301,28 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--out",
         default=str(REPO / "dist"),
-        help="output directory (default: ./dist)",
+        help="output directory for the wrappers (default: ./dist)",
+    )
+    p.add_argument(
+        "--check",
+        action="store_true",
+        help="verify the committed USING.md matches a fresh generation; "
+        "write nothing; exit 1 if stale (used by CI)",
     )
     args = p.parse_args(argv)
 
+    catalog = parse_catalog(ANTIPATTERNS_MD)
+
+    if args.check:
+        return check_using(catalog)
+
+    # The committed community guide.
+    USING_MD.write_text(build_using(catalog), encoding="utf-8")
+    print(f"wrote {USING_MD.relative_to(REPO)}")
+
+    # The gitignored dist/ wrappers.
     out_dir = Path(args.out)
     variants = VARIANTS if args.variant == "both" else [args.variant]
-    catalog = parse_catalog(ANTIPATTERNS_MD)
 
     for variant in variants:
         vdir = out_dir / variant
@@ -276,7 +337,6 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         (vdir / "chatgpt-instructions.md").write_text(chatgpt, encoding="utf-8")
         (vdir / "full-instructions.md").write_text(build_full(variant), encoding="utf-8")
-        (vdir / "SETUP.md").write_text(build_setup(variant), encoding="utf-8")
 
         try:
             where = str(vdir.relative_to(REPO))
@@ -284,7 +344,7 @@ def main(argv: list[str] | None = None) -> int:
             where = str(vdir)  # --out pointed outside the repo
         print(
             f"[{variant}] wrote chatgpt-instructions.md ({len(chatgpt)} chars), "
-            f"full-instructions.md, SETUP.md -> {where}/"
+            f"full-instructions.md -> {where}/"
         )
     return 0
 

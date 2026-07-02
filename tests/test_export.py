@@ -23,6 +23,8 @@ class TestBuild(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.cat = parse_catalog(CATALOG_PATH)
+        # Fixed URL keeps the build_using tests hermetic (no git dependency).
+        cls.url = "https://github.com/example/skill"
 
     def test_chatgpt_under_char_limit(self):
         for variant in ("ryan", "community"):
@@ -66,26 +68,42 @@ class TestBuild(unittest.TestCase):
     # ---- USING.md (the committed community guide) ----
 
     def test_using_mentions_all_platforms(self):
-        using = export.build_using(self.cat)
+        using = export.build_using(self.cat, repo_url=self.url)
         for platform in ("Claude", "Manus", "ChatGPT", "Gemini"):
             self.assertIn(platform, using)
 
     def test_using_chatgpt_path_is_a_project(self):
         # The rejected direction was a Custom GPT. The guide must route ChatGPT
         # users to a Project instead.
-        using = export.build_using(self.cat)
+        using = export.build_using(self.cat, repo_url=self.url)
         self.assertIn("## ChatGPT (a Project", using)
 
     def test_using_carries_live_pattern_count(self):
         # The whole point of generating USING.md is that the headline count
         # tracks the catalog. It must equal the parsed entry count.
-        using = export.build_using(self.cat)
+        using = export.build_using(self.cat, repo_url=self.url)
         self.assertIn(f"**{len(self.cat.entries)} patterns**", using)
+
+    def test_using_links_follow_the_repo(self):
+        # Fork-correctness (Codex P2): the generated links must point at the
+        # repo the guide is generated for, not a hardcoded upstream.
+        using = export.build_using(self.cat, repo_url=self.url)
+        self.assertIn(self.url, using)                # Manus import URL
+        self.assertIn(self.url + "/releases", using)  # Releases links
 
     def test_using_is_idempotent(self):
         # Generation is deterministic: same catalog -> identical bytes. This is
         # what makes the --check sync guard meaningful.
-        self.assertEqual(export.build_using(self.cat), export.build_using(self.cat))
+        self.assertEqual(
+            export.build_using(self.cat, repo_url=self.url),
+            export.build_using(self.cat, repo_url=self.url),
+        )
+
+    def test_detect_repo_url_falls_back_outside_a_clone(self):
+        # Outside a git repo (no origin), detection falls back to upstream so
+        # generation never breaks.
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(export.detect_repo_url(Path(d)), export.UPSTREAM_URL)
 
 
 class TestCheck(unittest.TestCase):

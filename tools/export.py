@@ -40,6 +40,8 @@ Stdlib only. Run from the repo root:
 from __future__ import annotations
 
 import argparse
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -53,8 +55,35 @@ SKILL_MD = REPO / "SKILL.md"
 ANTIPATTERNS_MD = REPO / "ANTIPATTERNS.md"
 USING_MD = REPO / "USING.md"
 
-REPO_URL = "https://github.com/ryanhanley13/antipatterns"
-RELEASES_URL = REPO_URL + "/releases"
+# Fallback when the repo URL can't be read from git (e.g. generation run outside
+# a clone). Detected at runtime so a fork's regenerated USING.md points at the
+# fork, not the upstream - the README invites forks, so the generated guide has
+# to follow them.
+UPSTREAM_URL = "https://github.com/ryanhanley13/antipatterns"
+
+
+def detect_repo_url(repo_path: Path = REPO) -> str:
+    """Best-effort GitHub URL of this repo from the `origin` remote.
+
+    Normalizes both git@github.com:owner/repo.git and https://github.com/owner/repo(.git).
+    Falls back to UPSTREAM_URL if git is missing, there's no origin, or the URL
+    isn't a recognizable GitHub URL, so generation never breaks outside a clone.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=str(repo_path), capture_output=True, text=True, timeout=5,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return UPSTREAM_URL
+    if out.returncode != 0:
+        return UPSTREAM_URL
+    m = re.match(
+        r"(?:git@github\.com:|https?://github\.com/)([^/]+/[^/]+?)(?:\.git)?$",
+        out.stdout.strip(),
+    )
+    return f"https://github.com/{m.group(1)}" if m else UPSTREAM_URL
+
 
 # ChatGPT Project custom-instructions ceiling (leave headroom under 8000).
 CHATGPT_CHAR_LIMIT = 8000
@@ -252,12 +281,15 @@ The source of truth is always `ANTIPATTERNS.md` + `SKILL.md` in the repo. `USING
 """
 
 
-def build_using(catalog) -> str:
-    """The one-page, multi-tool usage guide. Live pattern count from the catalog."""
+def build_using(catalog, repo_url: str | None = None) -> str:
+    """The one-page, multi-tool usage guide. The pattern count is live from the
+    catalog; the repo/release links follow the repo this is generated in (so a
+    fork's guide points at the fork, not the upstream)."""
+    repo_url = repo_url or detect_repo_url()
     return _USING_TEMPLATE.format(
         count=len(catalog.entries),
-        releases_url=RELEASES_URL,
-        repo_url=REPO_URL,
+        releases_url=repo_url + "/releases",
+        repo_url=repo_url,
     )
 
 

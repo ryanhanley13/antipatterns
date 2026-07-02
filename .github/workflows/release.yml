@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   release:
-    name: Build and publish antipatterns.skill
+    name: Build and publish the skill and wrappers
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +22,12 @@ jobs:
         run: python -m unittest discover -s tests
       - name: Build the bundle
         run: python tools/build_bundle.py
-      - name: Publish bundle to GitHub Release
+      - name: Build the platform wrappers
+        # Ready-to-paste files for ChatGPT (Project) and Gemini (Gem) users.
+        # Only the community cut is published; the ryan variant stays a local
+        # generation option.
+        run: python tools/export.py --variant community
+      - name: Publish to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NOTES: RELEASE_NOTES/${{ github.ref_name }}.md
@@ -32,10 +37,13 @@ jobs:
             echo "Write RELEASE_NOTES/<tag>.md before tagging, then re-run."
             exit 1
           fi
+          ASSETS="antipatterns.skill \
+            dist/community/chatgpt-instructions.md \
+            dist/community/full-instructions.md"
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" antipatterns.skill --clobber
+            gh release upload "${GITHUB_REF_NAME}" $ASSETS --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" antipatterns.skill \
+            gh release create "${GITHUB_REF_NAME}" $ASSETS \
               --title "${GITHUB_REF_NAME}" \
               --notes-file "$NOTES" \
               --verify-tag

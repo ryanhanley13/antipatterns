@@ -64,16 +64,6 @@ def _strip_frontmatter(text: str) -> str:
     return text
 
 
-def _community_transform(text: str) -> str:
-    """Genericize the author's voice for the shareable community variant.
-
-    Replaces the author's name with 'you/your' so the skill reads as guidance
-    for the reader. Trait specifics (register, edge) are left in as a concrete
-    example to replace - the customization banner tells the reader to swap them.
-    """
-    return text.replace("Ryan's", "your").replace("Ryan", "you")
-
-
 # -------------------------------------------------------------------------- #
 # ChatGPT condensed instructions
 # -------------------------------------------------------------------------- #
@@ -181,9 +171,6 @@ def build_chatgpt(variant: str, catalog) -> str:
 def build_full(variant: str) -> str:
     skill = _strip_frontmatter(SKILL_MD.read_text(encoding="utf-8"))
     catalog = ANTIPATTERNS_MD.read_text(encoding="utf-8")
-    if variant == "community":
-        skill = _community_transform(skill)
-        catalog = _community_transform(catalog)
 
     banner = (
         "> **Antipatterns - AI-writing-tell scrubber.** Paste this block into your "
@@ -192,10 +179,16 @@ def build_full(variant: str) -> str:
         "automatically.)\n\n"
     )
     if variant == "community":
+        # Keep the author's voice as a concrete example rather than
+        # naive-genericizing the name - a find/replace breaks the surrounding
+        # grammar ("you writes", "his voice") and would strip the only concrete
+        # calibration the reader has. The catalog's own "Customizing for your
+        # voice" section tells them exactly what to swap.
         banner += (
-            "> **Community edition:** the voice traits in this skill are the author's "
-            "calibration. Find the 'Voice Drift Sanity Check' and 'What Good Sounds "
-            "Like' sections and replace them with YOUR traits.\n\n"
+            "> **Community edition:** this skill is calibrated to its author's voice "
+            "(Ryan) - the voice-check traits below are a concrete example to swap for "
+            "your own, not a generic default. Follow the 'Customizing for your voice' "
+            "section in the catalog to retune them.\n\n"
         )
     return banner + "# PROCEDURE\n\n" + skill + "\n\n---\n\n# CATALOG\n\n" + catalog
 

@@ -39,10 +39,15 @@ class TestBuild(unittest.TestCase):
         self.assertIn("removal test", low)    # the procedure
         self.assertIn("voice drift check", low)
 
-    def test_community_genericizes_author(self):
+    def test_community_keeps_author_as_example_with_banner(self):
+        # Regression (Codex review on #13): the community variant does NOT
+        # naive-genericize the author's name - that breaks grammar ("you writes",
+        # "his voice"). It keeps the author's voice as a concrete example and
+        # adds a banner pointing to the customize section.
         full = export.build_full("community")
-        self.assertNotIn("Ryan", full)
-        self.assertIn("you", full)
+        self.assertIn("Community edition", full)
+        self.assertIn("Customizing for your voice", full)
+        self.assertIn("Ryan", full)  # kept as the example, not mangled
 
     def test_ryan_keeps_author_voice(self):
         self.assertIn("Ryan", export.build_full("ryan"))

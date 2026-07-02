@@ -28,3 +28,6 @@ Thumbs.db
 
 # Build artifact (published via GitHub Releases, not committed)
 antipatterns.skill
+
+# Generated platform wrappers (produced by tools/export.py)
+dist/
